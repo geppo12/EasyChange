@@ -8,7 +8,7 @@ type
     k3DigitWithBeta { modello con indicazione beta 0.0.0beta0 (beta visualizzato se attivo flag beta}
   );
 
-function VersionInformation(AVerMode: TVerMode; ABeta: Boolean): string;
+function VersionInformation(AVerMode: TVerMode; ABeta: Boolean = false): string;
 
 implementation
 
@@ -37,13 +37,14 @@ begin
     Result := Result + '.' + IntToStr(dwFileVersionLS shr 16);
     if AVerMode = k4DigitPlain then
       Result := Result + '.' + IntToStr(dwFileVersionLS and $FFFF)
-    else if (AVerMode = k3DigitWithBeta) and ABeta then
+    else if (AVerMode = k3DigitWithBeta) and ABeta then begin
       LBuild := dwFileVersionLS and $FFFF;
 
       if (LBuild div 100) = 0 then
         Result := Result + 'beta' + IntToStr(LBuild)
       else
         Result := Result + 'RC' + IntToStr(LBuild mod 100)
+    end;
   end;
   FreeMem(VerInfo, VerInfoSize);
 end;

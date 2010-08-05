@@ -77,7 +77,6 @@ object fmMain: TfmMain
     Height = 21
     Style = csDropDownList
     DragMode = dmAutomatic
-    ItemHeight = 13
     TabOrder = 3
     Visible = False
     OnSelect = cbMultipleSelect
@@ -113,6 +112,15 @@ object fmMain: TfmMain
       '')
     ReadOnly = True
     TabOrder = 7
+  end
+  object cbUseProject: TCheckBox
+    Left = 8
+    Top = 463
+    Width = 87
+    Height = 17
+    Caption = 'Use Project'
+    TabOrder = 8
+    Visible = False
   end
   object odLoadFile: TOpenDialog
     Left = 153

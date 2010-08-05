@@ -2,7 +2,10 @@ unit UCore;
 
 interface
 
-uses SysUtils, Classes, Contnrs;
+uses
+  SysUtils,
+  Classes,
+  Contnrs;
 
 resourcestring
   kInvalidStringStr = 'Stringa ''%s'' invalida';
@@ -63,6 +66,7 @@ type
   end;
 
   TECParamBuilder = class
+    private
     FStringBuilder: TStringList;
     FEscape: Boolean;
     FQuote: Boolean;
@@ -177,7 +181,10 @@ type
 
 implementation
 
-uses StrUtils, SiAuto,SmartInspect;
+uses
+  StrUtils,
+  SiAuto,
+  SmartInspect;
 
 { Exceptions ----------------------------------------------------------------- }
 

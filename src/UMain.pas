@@ -27,6 +27,7 @@ type
     sgProperty: TStringGrid;
     btnExit: TButton;
     mDoc: TMemo;
+    cbUseProject: TCheckBox;
     procedure btnExitClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure btnPathClick(Sender: TObject);
@@ -51,12 +52,16 @@ type
     FOldSgWndProc: TWndMethod;
 
     { general private method }
+    procedure siLocalInit;
     procedure showValues;
     procedure clearGridSel;
     procedure doLoad;
     procedure doDrop(var AMsg: TWMDropFiles);
     procedure closeEditing(AData: string);
+    //1 imposta la posizione dei controlli ausiliari
     procedure setControlPos(ARect: TRect; ACtrl: TControl);
+    {* Seleziona i controlli nascosti da visualizzare in base al tipo di valore
+       @parm ACtrlKind  tipo del valore da visualizzare }
     procedure setCtrlVisible(ACtrlKind: TECValueKind);
     procedure setDocs(ADocs: string);
     procedure createBackup(AFileName: string);
@@ -81,6 +86,11 @@ uses
 {$R *.dfm}
 
 const
+  // smart inspect related
+  kSiConnetion = 'file(append="true", filename="log.sil", maxsize="500MB")';
+  kSiDebugLevel = lvDebug;
+  kSiDefaultLevel = lvDebug;
+
   kBooleanMargin = 3;
   kHeightMargin = 3;
   kWidthMargin = 3;
@@ -89,10 +99,42 @@ const
 
 procedure MsgBox(const AMessage: string);
 begin
-  Application.MessageBox(PAnsiChar(AMessage),PAnsiChar(Application.Title),MB_OK);
+  Application.MessageBox(PChar(AMessage),PChar(Application.Title),MB_OK);
 end;
 
 { TfmMain -------------------------------------------------------------------- }
+procedure TfmMain.siLocalInit;
+var
+  LFileNameSic: string;
+  LFileNameSil: string;
+  LFileDir: string;
+  sicDone: Boolean;
+begin
+  sicDone := False;
+  LFileNameSil := ChangeFileExt('c:\' + ExtractFileName(Application.ExeName),'.sil');
+  Si.SetVariable('filename',LFileNameSil);
+
+  LFileNameSic := ChangeFileExt(Application.ExeName,'.sic');
+  if FileExists(LFileNameSic) then begin
+    Si.LoadConfiguration(LFileNameSic);
+    sicDone := True;
+  end;
+
+  if not sicDone then begin
+    Si.Connections := kSiConnetion;
+    Si.Level  := kSiDebugLevel;
+    Si.DefaultLevel := kSiDefaultLevel;
+    Si.Enabled := True;
+  end;
+{$IFDEF _MICROSEC}
+  Si.Resolution := crHigh;
+{$ENDIF}
+  SiMain.ClearAll;
+
+{$IFNDEF EUREKALOG}
+  Application.OnException := SiMain.ExceptionHandler;
+{$ENDIF}
+end;
 
 procedure TfmMain.showValues;
 var
@@ -165,8 +207,6 @@ begin
       SiMain.LogDebug('No line to close');
 end;
 
-{* TfmMain.setControlPos
-   imposta la posizione dei controlli ausiliari }
 procedure TfmMain.setControlPos(ARect: TRect; ACtrl: TControl);
 var
   LCellWidth: Integer;
@@ -185,31 +225,26 @@ end;
 procedure TfmMain.setCtrlVisible(ACtrlKind: TECValueKind);
 var
   LRect: TGridRect;
+  LMultiple: Boolean;
+  LPath: Boolean;
 begin
+  LMultiple := False;
+  LPath     := False;
   case ACtrlKind of
-    { server per disbilitare tutti i controlli quando sono fuori
-      da una selezione }
-    vkUnknown,
-    vkBoolean,
-    vkString: begin
-        cbMultiple.Visible := False;
-        btnPath.Visible := False;
-      end;
+    vkString: ;
     vkFile,
-    vkPath: begin
-        cbMultiple.Visible := False;
-        btnPath.Visible := True;
-      end;
+    vkPath: LPath := True;
+    vkBoolean,
     vkMultiple: begin
         LRect.Left := -1;
         LRect.Top := -1;
         LRect.Right := -1;
         LRect.Bottom := -1;
-        sgProperty.Selection := LRect;
-        cbMultiple.Visible := True;
-        btnPath.Visible := False;
+        LMultiple := True;
       end;
   end;
+  btnPath.Visible    := LPath;
+  cbMultiple.Visible := LMultiple;
 end;
 
 procedure TfmMain.setDocs(ADocs: string);
@@ -297,10 +332,16 @@ begin
       LRect := sgProperty.CellRect(ACol,ARow);
       case LValue.Kind of
         vkBoolean: begin
+            setControlPos(LRect,cbMultiple);
+            cbMultiple.Clear;
+            cbMultiple.Items.Add('False');
+            cbMultiple.Items.Add('True');
+            cbMultiple.Visible := True;
+
             if LValue.OptionName = kTrueStr then
-              closeEditing(kFalseStr)
+              cbMultiple.ItemIndex := 1
             else if LValue.OptionName = kFalseStr then
-              closeEditing(kTrueStr);
+              cbMultiple.ItemIndex := 0;
             CanSelect := False;
           end;
 
@@ -341,14 +382,9 @@ procedure TfmMain.FormCreate(Sender: TObject);
 begin
   FDataFile := TECDataFile.Create;
   { Abilitazione SmartInspect }
-{$IFDEF _ENABLE_DEBUG}
-  Si.Enabled := True;
-  Si.Level := lvDebug;
-  Si.DefaultLevel := lvDebug;
-{$ELSE}
-  Si.Enabled := False;
-{$ENDIF}
-  SiMain.ClearAll;
+  siLocalInit;
+  SiMain.LogMessage('Start EasyChange %s',[VersionInformation(k4DigitPlain)]);
+  SiMain.LogSystem;
   FEditingRow := -1;
   if ParamCount = 0 then begin
     DragAcceptFiles(sgProperty.Handle,true);
@@ -360,6 +396,7 @@ end;
 procedure TfmMain.FormDestroy(Sender: TObject);
 begin
   FDataFile.Free;
+  SiMain.LogMessage('Close EasyChange');
 end;
 
 procedure TfmMain.btnSelectClick(Sender: TObject);
