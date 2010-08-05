@@ -1,3 +1,11 @@
+1.1.0.10
+NEW	Implementata la modalità multifile
+
+1.0.3b5
+NEW Utilizzo di un combobox per vero / falso
+NEW Migliore implementazione della gestione di SmartInspect
+FIX Corretto un problema nel file per la generazione del nome di versione
+
 1.0.3b4 [20091002]
 FIX Corretto resize della form
 FIX Risolto un problema con gli item del kind "multiple"

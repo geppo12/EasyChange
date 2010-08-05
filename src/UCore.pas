@@ -65,6 +65,11 @@ type
     constructor Create(const AMsg: string);
   end;
 
+  EECNoDataFile = class(EECException)
+    public
+    constructor Create(const AMsg: string);
+  end;
+
   TECParamBuilder = class
     private
     FStringBuilder: TStringList;
@@ -158,6 +163,7 @@ type
     FDocName: string;
 
     function getValue(AIndex: Integer): TECValue; inline;
+    function getCount: Integer;
     {* aggiunge una stringa di documentazione ad un valore }
     procedure addDocEntry(AString: string);
     function splitString(var ASplit: TECSplittedString; AString: string): Boolean;
@@ -174,8 +180,10 @@ type
     {* Effettua tutte le sostituzioni }
     procedure ReplaceAll;
 
+    {* sono  i valori di sostituzione all' interno del file }
     property ValueList: TECValueList read FValueList;
     property InvalidString: Integer read FInvalidString;
+    property Count: Integer read getCount;
   end;
 
 
@@ -208,6 +216,10 @@ begin
   inherited Create(AMsg);
 end;
 
+constructor EECNoDataFile.Create(const AMsg: string);
+begin
+  inherited Create(AMsg);
+end;
 
 { TECStringBuilder ----------------------------------------------------------- }
 
@@ -634,6 +646,11 @@ end;
 function TECDataFile.getValue(AIndex: Integer): TECValue;
 begin
   Result := FValueList.Values[AIndex];
+end;
+
+function TECDataFile.getCount: Integer;
+begin
+  Result := FValueList.Count;
 end;
 
 procedure TECDataFile.addDocEntry(AString: string);
