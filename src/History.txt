@@ -1,0 +1,39 @@
+1.0.3b4 [20091002]
+FIX Corretto resize della form
+FIX Risolto un problema con gli item del kind "multiple"
+
+1.0.3b3 [20090831]
+NEW Link con EurekaLog 6.0.20
+NEW Link con SmartInspect 3.2.0
+NEW Modicato il separatore x la documetazione
+NEW Possibilità di inserire la documentazione su più linee omettendo il nome dell'entry
+
+1.0.3b2 [20081012]
+NEW Ottimizzato e semplificato algoritmo di sostituzione delle stringhe
+FIX Fix sulla sequenza di terminazione di stringa. Non era sempre riconosciuta
+    processata correttamente
+
+1.0.3b1 [20081010]
+NEW Migliorata gestione dei valori True/False
+NEW Inserita la gestione della documentazione delle entry
+NEW Link con EurekaLog 6.0.17
+NEW Link con SmartInspect 3.1
+
+1.0.2.0
+NEW Ricompilato con D2007
+NEW Inserito Eurekalog 6.0.11
+NEW Inserita terminazione linea forzata per quei linguaggi che non hanno
+    il commento di lina (tipo // del c++) ma solo il commento di blocco
+    (tipo il /* */ del C)
+    attualmente usato solo per il linker GNU
+
+== Start Branch 1.0 ==
+
+1.0.1.0
+FIX In caso di resize i bottoni andavano fuori posto
+CHG Ripulti alcuni commenti ed eventi non piu' usati
+NEW Inserito il tipo file
+NEW La directory parte da quella spcificata
+
+1.0.0.0
+Prima versione
