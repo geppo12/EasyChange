@@ -14,7 +14,9 @@ uses
 {$DEFINE _ENABLE_DEBUG}
 
 {$DEFINE _BETA_VERSION}
-
+const
+  {* tipo di progetto EasyChange }
+  kProjectExt = '.ecp';
 type
 
   TfmMain = class(TForm)
@@ -28,6 +30,7 @@ type
     btnExit: TButton;
     mDoc: TMemo;
     cbUseProject: TCheckBox;
+    lbFiles: TListBox;
     procedure btnExitClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure btnPathClick(Sender: TObject);
@@ -38,6 +41,7 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormResize(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure lbFilesClick(Sender: TObject);
     procedure sgPropertySelectCell(Sender: TObject; ACol, ARow: Integer;
       var CanSelect: Boolean);
     procedure sgPropertySetEditText(Sender: TObject; ACol, ARow: Integer; const
@@ -46,16 +50,20 @@ type
     { Private declarations }
     FSelectFile: Boolean;
     FLastDir: string;   // #MEMO temporaneo
-    FFileName: string;
     FEditingRow: Integer;
-    FDataFile: TECDataFile;
-    FOldSgWndProc: TWndMethod;
+    {* Lista dei file da processare }
+    FFiles: TStringList;
+    FOldWndProc: TWndMethod;
 
     { general private method }
     procedure siLocalInit;
+    procedure clear;
+    procedure clearGrid;
+    procedure resetControls;
+    function getCurrentDataFile: TECDataFile;
     procedure showValues;
     procedure clearGridSel;
-    procedure doLoad;
+    procedure doLoad(AFileName: string);
     procedure doDrop(var AMsg: TWMDropFiles);
     procedure closeEditing(AData: string);
     //1 imposta la posizione dei controlli ausiliari
@@ -65,7 +73,7 @@ type
     procedure setCtrlVisible(ACtrlKind: TECValueKind);
     procedure setDocs(ADocs: string);
     procedure createBackup(AFileName: string);
-    procedure sgWndProc(var AMsg: TMessage);
+    procedure newWndProc(var AMsg: TMessage);
   public
 
     { Public declarations }
@@ -136,23 +144,65 @@ begin
 {$ENDIF}
 end;
 
+procedure TfmMain.clear;
+var
+  I: Integer;
+begin
+  clearGrid;
+  for I := 0 to lbFiles.Count - 1 do
+    lbFiles.Items.Objects[I].Free;
+
+  lbFiles.clear;
+end;
+
+procedure TfmMain.clearGrid;
+begin
+  sgProperty.Cols[0].Clear;
+  sgProperty.Cols[1].Clear;
+end;
+
+procedure TfmMain.resetControls;
+begin
+  cbMultiple.Visible := False;
+  btnPath.Visible := False;
+end;
+
+function TfmMain.getCurrentDataFile: TECDataFile;
+begin
+  if lbFiles.ItemIndex >= 0 then
+    Result := lbFiles.Items.Objects[lbFiles.ItemIndex] as TECDataFile
+  else
+    raise EECNoDataFile.Create('no data file');
+end;
+
+
 procedure TfmMain.showValues;
 var
+  LDataFile: TECDataFile;
   LRowIndex: Integer;
   LValue: TECValue;
   LRow: TStrings;
 begin
-  sgProperty.RowCount := FDataFile.ValueList.Count;
+  SiMain.EnterMethod(Self, 'showValues');
+  try
+    LDataFile := getCurrentDataFile;
+    sgProperty.RowCount := LDataFile.ValueList.Count;
 
-  for LRowIndex := 0 to FDataFile.ValueList.Count-1 do begin
-    LValue := FDataFile.ValueList.Values[LRowIndex];
-    LRow := sgProperty.Rows[LRowIndex];
-    LRow.Clear;
-    { NOTA: 1 e' la colonna di destra }
-    LRow.Objects[1] := LValue;
-    LRow.Add(LValue.Name);
-    LRow.Add(LValue.OptionName);
+    for LRowIndex := 0 to LDataFile.ValueList.Count-1 do begin
+      LValue := LDataFile.ValueList.Values[LRowIndex];
+      LRow := sgProperty.Rows[LRowIndex];
+      LRow.Clear;
+      { NOTA: 1 e' la colonna di destra }
+      LRow.Objects[1] := LValue;
+      LRow.Add(LValue.Name);
+      LRow.Add(LValue.OptionName);
+    end;
+  except
+    { su questa eccezione non fa niente }
+    on EECNoDataFile do
+      SiMain.LogException;
   end;
+  SiMain.LeaveMethod(Self, 'showValues');
 end;
 
 procedure TfmMain.clearGridSel;
@@ -167,12 +217,35 @@ begin
   ActiveControl := sgProperty;
 end;
 
-procedure TfmMain.doLoad;
+procedure TfmMain.doLoad(AFileName: string);
+var
+  I: Integer;
+  LDataFile: TECDataFile;
 begin
-  FDataFile.LoadFromFile(FFileName);
+  clear;
+  LDataFile := TECDataFile.Create;
+  if (ExtractFileExt(AFileName) = kProjectExt) and cbUseProject.Checked then begin
+    FFiles.LoadFromFile(AFileName);
+    for I := FFiles.Count - 1 downto 0 do begin
+      LDataFile.LoadFromFile(FFiles[I]);
+      if LDataFile.Count <> 0 then begin
+        lbFiles.AddItem(ExtractFilename(FFiles[I]),LDataFile);
+        LDataFile := TECDataFile.Create;
+      end else
+        FFiles.Delete(I);
+    end;
+    LDataFile.Free;
+    lbFiles.ItemIndex := 0;
+    showValues;
+  end else begin
+    FFiles.Add(AFileName);
+    LDataFile.LoadFromFile(ExtractFilename(AFileName));
+    lbFiles.AddItem(AFileName,LDataFile);
+    lbFiles.ItemIndex := 1;
+  end;
 
-  if FDataFile.InvalidString > 0  then
-    MsgBox(Format('%d Invalid String in header',[FDataFile.InvalidString]))
+  if LDataFile.InvalidString > 0  then
+    MsgBox(Format('%d Invalid String in header',[LDataFile.InvalidString]))
   else
     showValues;
 end;
@@ -185,9 +258,7 @@ begin
   LNumFiles := DragQueryFile(AMsg.Drop, $FFFFFFFF, nil, 0) ;
   if LNumFiles = 1 then begin
     DragQueryFile(AMsg.Drop, 0, @LBuffer, sizeof(LBuffer)) ;
-    FFileName := LBuffer;
-    eFilename.Text := LBuffer;
-    doLoad;
+    doLoad(LBuffer);
   end;
 end;
 
@@ -295,12 +366,12 @@ begin
 {$ENDIF}
 end;
 
-procedure TfmMain.sgWndProc(var AMsg: TMessage);
+procedure TfmMain.newWndProc(var AMsg: TMessage);
 begin
   if AMsg.Msg = WM_DROPFILES then
     doDrop(TWMDropFiles(AMsg))
   else
-    FOldSgWndProc(AMsg);
+    FOldWndProc(AMsg);
 end;
 
 
@@ -380,33 +451,29 @@ end;
 
 procedure TfmMain.FormCreate(Sender: TObject);
 begin
-  FDataFile := TECDataFile.Create;
   { Abilitazione SmartInspect }
   siLocalInit;
   SiMain.LogMessage('Start EasyChange %s',[VersionInformation(k4DigitPlain)]);
   SiMain.LogSystem;
   FEditingRow := -1;
+  FFiles := TStringList.Create;
   if ParamCount = 0 then begin
-    DragAcceptFiles(sgProperty.Handle,true);
-    FOldSgWndProc := sgProperty.WindowProc;
-    sgProperty.WindowProc := sgWndProc;
+    DragAcceptFiles(Handle,true);
+    FOldWndProc := WindowProc;
+    WindowProc := newWndProc;
   end;
 end;
 
 procedure TfmMain.FormDestroy(Sender: TObject);
 begin
-  FDataFile.Free;
+  FFiles.Free;
   SiMain.LogMessage('Close EasyChange');
 end;
 
 procedure TfmMain.btnSelectClick(Sender: TObject);
 begin
-  if odLoadFile.Execute then begin
-    eFileName.Text := odLoadFile.Filename;
-    if FFileName <> eFileName.Text then
-      FFileName :=  eFileName.Text;
-    doLoad;
-  end;
+  if odLoadFile.Execute then
+    doLoad(odLoadFile.Filename);
 end;
 
 procedure TfmMain.btnExitClick(Sender: TObject);
@@ -415,12 +482,19 @@ begin
 end;
 
 procedure TfmMain.btnOkClick(Sender: TObject);
+var
+  LDataFile: TECDataFile;
 begin
-  createBackup(FFileName);
-  FDataFile.ReplaceAll;
-  FDataFile.SaveToFile(FFileName);
-  if ParamCount = 1 then
-    Close;
+  if lbFiles.ItemIndex >= 0 then begin
+    if FileExists(FFiles[lbFiles.ItemIndex]) then begin
+      createBackup(FFiles[lbFiles.ItemIndex]);
+      LDataFile := getCurrentDataFile;
+      LDataFile.ReplaceAll;
+      LDataFile.SaveToFile(FFiles[lbFiles.ItemIndex]);
+      if ParamCount = 1 then
+        Close;
+    end;
+  end;
 end;
 
 procedure TfmMain.btnPathClick(Sender: TObject);
@@ -440,7 +514,7 @@ begin
     end;
   end else begin
     odLoadFile.InitialDir := FLastDir;
-    if odLoadFile.Execute then 
+    if odLoadFile.Execute then
       closeEditing(odLoadFile.FileName);
   end;
 end;
@@ -454,9 +528,14 @@ end;
 { per effettuare un refresh con F5 }
 procedure TfmMain.FormKeyDown(Sender: TObject; var Key: Word; Shift:
     TShiftState);
+var
+  LIndex: Integer;
 begin
-  if (Key = VK_F5) and FileExists(FFilename) then
-    doLoad;
+  LIndex := lbFiles.ItemIndex;
+  if LIndex >= 0 then begin
+    if (Key = VK_F5) and FileExists(FFiles[LIndex]) then
+      doLoad(FFiles[LIndex]);
+  end;
 end;
 
 procedure TfmMain.FormResize(Sender: TObject);
@@ -473,12 +552,10 @@ end;
 procedure TfmMain.FormShow(Sender: TObject);
 begin
   clearGridSel;
-  Caption := Caption + ' V'+VersionInformation(k3DigitWithBeta,
+  Caption := Caption + ' V'+VersionInformation(k4DigitPlain);
 {$IFDEF _BETA_VERSION}
-  True);
-{$ELSE}
-  False);
- {$ENDIF}
+  Caption := Caption + ' Beta';
+{$ENDIF}
 
   if ParamCount > 0 then begin
     with sgProperty do
@@ -486,10 +563,17 @@ begin
     sgProperty.Top := eFileName.Top;
     eFileName.Visible := False;
     btnSelect.Visible := False;
-    FFileName := ParamStr(1);
-    doLoad;
-    Caption := Caption + ' - ' + ExtractFilename(ParamStr(1));
+    doLoad(ParamStr(1));
   end;
+end;
+
+procedure TfmMain.lbFilesClick(Sender: TObject);
+begin
+  if lbFiles.ItemIndex >= 0 then begin
+    resetControls;
+    showValues;
+  end else
+    clearGrid
 end;
 
 procedure TfmMain.sgPropertySetEditText(Sender: TObject; ACol, ARow: Integer;
