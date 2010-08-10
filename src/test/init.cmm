@@ -1,4 +1,5 @@
 ;EasyChange section: do not delete
+;@GM@ R,varvalue,0,-5,10
 ;@GM@ P,cspath,D:\DATI\Borland
 ;@GM@ S,appname,test_release
 ;@GM@ B,sdram,True,"do sdram",";do sdram"
@@ -17,6 +18,8 @@ global &cmdonline
 stop
 dialog.end
 do start-cpu
+;@GM@ &var=@%varvalue@%
+&var=0
 
 ;@GM@ @%sdram@%
 do sdram

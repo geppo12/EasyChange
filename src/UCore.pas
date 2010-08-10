@@ -34,7 +34,8 @@ type
     vkPath,
     vkFile,
     vkBoolean,
-    vkMultiple
+    vkMultiple,
+    vkRange
   );
 
   TECStringType = (
@@ -111,6 +112,8 @@ type
     FDocs: string;
     FValueList: TStringList;
     FValue: string;
+    FMaxValue: Integer;
+    FMinValue: Integer;
     FOptionName: string;
     //* parte iniziale di una linea di testo usata per la rigenerazione del file
     FLineHeader: string;
@@ -143,6 +146,8 @@ type
     property NameMagic: string read getNameMagic;
     property Options[AIdx: Integer]: string read getOptions;
     property Value: string read FValue;
+    property MaxValue: Integer read FMaxValue;
+    property MinValue: Integer read FMinValue;
     property OptionName: string read getOptionName write setOptionName;
     property ActualValueIdx: Integer read getActualValueIdx;
     property Kind: TECValueKind read FKind;
@@ -322,9 +327,12 @@ end;
 { qui ho la stringa su chi effettuare il parser
 
   FORMATO STRING:
-  kind string:  S,SYMNAME,NAME,value,
+  kind string:  S,SYMNAME,value
+  kind path:    P,SYMNAME,path
+  kind file     F,SYMNAME,file
+  kind range    R,SYMNAMe,value,min,max
   kind boolean  B,SYMNAME,value,onvalue,offvalue
-  kind multiple M,NAME,value,auto,name1=value1,name2=value2....
+  kind multiple M,SYMNAME,value,auto,name1=value1,name2=value2....
 
   NOTA: il kind e' il carattere 1
   NOTA: per i boolean il nome e' fissato a true per il primo e false per il secondo
@@ -335,6 +343,7 @@ var
   LParamBuilder: TECParamBuilder;
   LOptionName,
   LValueName: string;
+  LAddValue: Boolean;
   LValueIdx,
   LStato: Integer;
   LFindComma,
@@ -364,6 +373,7 @@ begin
                 'F': FKind := vkFile;
                 'B': FKind := vkBoolean;
                 'M': FKind := vkMultiple;
+                'R': FKind := vkRange;
               end;
             end;
             { quando trovo la virola passo allo stato succcessivo }
@@ -420,11 +430,15 @@ begin
                 begin
                   LParamBuilder.Add(LCh);
                   if LParamBuilder.Completed and (LValueIdx <= 1) then begin
-                    if LValueIdx = 0 then
-                      LValueName := 'True'+'='+LParamBuilder.ParamAsString
-                    else
-                      LValueName := 'False'+'='+LParamBuilder.ParamAsString;
-                    FValueList.Add(LValueName);
+                    LAddValue := true;
+                    case LValueIdx of
+                      0: LValueName := 'True'+'='+LParamBuilder.ParamAsString;
+                      1: LValueName := 'False'+'='+LParamBuilder.ParamAsString
+                      else
+                        LAddValue := False;
+                    end;
+                    if LAddValue then
+                      FValueList.Add(LValueName);
                     LParamBuilder.Clear;
                     Inc(LValueIdx);
                   end;
@@ -438,7 +452,26 @@ begin
                     LParamBuilder.Clear;
                   end;
                 end;
+              vkRange:
+                begin
+                  LParamBuilder.Add(LCh);
+                  if LParamBuilder.Completed then
+                    try
+                      case LValueIdx of
+                        0: FMinValue := StrToInt(LParamBuilder.ParamAsString);
+                        1: FMaxValue := StrToInt(LParamBuilder.ParamAsString);
+                      end;
+                      LParamBuilder.Clear;
+                      Inc(LValueIdx);
+                    except
+                      on EConvertError do begin
+                        FMinValue := -MaxInt;
+                        FMaxValue := MaxInt;
+                      end;
+                    end;
+                end;
            end; { case stato 3,4 }
+
       end; { case }
     end;{ loop }
 
@@ -483,7 +516,7 @@ begin
   if FKind in [vkBoolean,vkMultiple] then
     FValue := FValueList.Values[AName]
   else
-    { per i tipi vkString e vkPath il valore corrisponde al nome }
+    { per i tipi vkString, vkPath, vkFile, vkRenge il valore corrisponde al nome }
     FValue := AName;
 
   FOptionName := AName;
@@ -509,22 +542,6 @@ end;
 
 {$IFDEF EXTENDED_DEBUG}
 
-(*
-var
-  LContext: TSiInspectorViewerContext;
-  LKindName: string;
-begin
-  // Create a custom inspector viewer context.
-  LContext := TSiInspectorViewerContext.Create;
-  try
-    LContext.StartGroup('Fields');
-    InternalLogRecord(LContext);
-    SiMain.LogCustomContext(lvDebug,ATitle + ' [Class: ' + ClassName + ']', ltText, LContext);
-  finally
-    LContext.Free;
-  end;
-end;
-*)
 procedure TECValue.Trace;
 var
   I: Integer;
@@ -534,11 +551,12 @@ begin
   LContext := TSiInspectorViewerContext.Create;
   try
     case FKind of
-      vkString: LKindName := 'vkString';
-      vkPath: LKindName := 'vkPath';
-      vkFile: LKindName := 'vkPath';
+      vkString:  LKindName := 'vkString';
+      vkPath:    LKindName := 'vkPath';
+      vkFile:    LKindName := 'vkPath';
       vkBoolean: LKindName := 'vkBoolean';
       vkMultiple: LKindName := 'vkMultiple';
+      vkRange:   LKindName := 'vkRange';
       else
         LKindName := '*** UNKNOWN ***';
     end;
@@ -548,7 +566,8 @@ begin
     LContext.AppendKeyValue('KindName',LKindName);
     LContext.AppendKeyValue('OptionName',OptionName);
     LContext.AppendKeyValue('Value',Value);
-
+    LContext.AppendKeyValue('MaxValue',IntTostr(FMaxValue));
+    LContext.AppendKeyValue('MinValue',IntTostr(FMinValue));
 
     if FValueList <>  nil then begin
       LContext.StartGroup('ValueList');
@@ -619,11 +638,17 @@ begin
       vkFile:     LList.Add('F');
       vkBoolean:  LList.Add('B');
       vkMultiple: LList.Add('M');
+      vkRange:    LList.Add('R');
     end;
     LList.Add(FName);
     LList.Add(FOptionName);
     if FValueList.Count <> 0 then begin
       case Kind of
+        vkRange: begin
+          LList.Add(IntToStr(FMinValue));
+          LList.Add(IntToStr(FMaxValue));
+        end;
+
         vkMultiple: begin
           for I := 0 to FValueList.Count - 1 do
             LList.Add(doEscape(FValueList.Strings[I]));
