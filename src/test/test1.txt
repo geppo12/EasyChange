@@ -1,0 +1,9 @@
+// @GM@ B,prova,False,#define,#undef
+// @GM@ M,prova2,A,A=1,B=2,C=3
+// @GM@ P,prova3,D:\ @GM! */
+//
+/* @GM-DOC@ prova: test booleano @GM! */
+// @GM-END@
+
+/* @GM@ @%prova2@% TEST @GM! */
+1 TEST

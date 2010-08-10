@@ -1,6 +1,5 @@
 1.1.0.10
-NEW Implementata la modalità multifile
-FIX corretta la gestione delle linee arbitrarie prima dell'header
+NEW	Implementata la modalità multifile
 
 1.0.3b5
 NEW Utilizzo di un combobox per vero / falso

@@ -26,41 +26,21 @@ object fmMain: TfmMain
   TextHeight = 13
   object sgProperty: TStringGrid
     Left = 8
-    Top = 35
+    Top = 8
     Width = 320
-    Height = 351
+    Height = 378
     Anchors = [akLeft, akTop, akBottom]
     ColCount = 2
     FixedCols = 0
     FixedRows = 0
     Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goEditing]
     ScrollBars = ssVertical
-    TabOrder = 5
+    TabOrder = 3
     OnSelectCell = sgPropertySelectCell
     OnSetEditText = sgPropertySetEditText
     ColWidths = (
       78
       73)
-  end
-  object eFileName: TEdit
-    Left = 8
-    Top = 8
-    Width = 509
-    Height = 21
-    Anchors = [akLeft, akTop, akRight]
-    TabOrder = 0
-    ExplicitWidth = 275
-  end
-  object btnSelect: TButton
-    Left = 523
-    Top = 8
-    Width = 39
-    Height = 21
-    Anchors = [akTop, akRight]
-    Caption = '...'
-    TabOrder = 1
-    OnClick = btnSelectClick
-    ExplicitLeft = 289
   end
   object btnOk: TButton
     Left = 487
@@ -69,9 +49,8 @@ object fmMain: TfmMain
     Height = 25
     Anchors = [akRight, akBottom]
     Caption = 'Process'
-    TabOrder = 2
+    TabOrder = 0
     OnClick = btnOkClick
-    ExplicitLeft = 253
   end
   object cbMultiple: TComboBox
     Left = 120
@@ -80,7 +59,7 @@ object fmMain: TfmMain
     Height = 21
     Style = csDropDownList
     DragMode = dmAutomatic
-    TabOrder = 3
+    TabOrder = 1
     Visible = False
     OnSelect = cbMultipleSelect
   end
@@ -91,10 +70,9 @@ object fmMain: TfmMain
     Height = 23
     Anchors = [akTop, akRight]
     Caption = '...'
-    TabOrder = 4
+    TabOrder = 2
     Visible = False
     OnClick = btnPathClick
-    ExplicitLeft = 242
   end
   object btnExit: TButton
     Left = 406
@@ -103,9 +81,8 @@ object fmMain: TfmMain
     Height = 25
     Anchors = [akRight, akBottom]
     Caption = 'Exit'
-    TabOrder = 6
+    TabOrder = 4
     OnClick = btnExitClick
-    ExplicitLeft = 172
   end
   object mDoc: TMemo
     Left = 8
@@ -116,8 +93,7 @@ object fmMain: TfmMain
     Lines.Strings = (
       '')
     ReadOnly = True
-    TabOrder = 7
-    ExplicitWidth = 320
+    TabOrder = 5
   end
   object cbUseProject: TCheckBox
     Left = 8
@@ -125,17 +101,29 @@ object fmMain: TfmMain
     Width = 87
     Height = 17
     Caption = 'Use Project'
-    TabOrder = 8
+    Checked = True
+    State = cbChecked
+    TabOrder = 6
   end
   object lbFiles: TListBox
     Left = 334
-    Top = 35
+    Top = 8
     Width = 228
-    Height = 351
+    Height = 378
     Anchors = [akLeft, akTop, akRight, akBottom]
     ItemHeight = 13
-    TabOrder = 9
+    TabOrder = 7
     OnClick = lbFilesClick
+  end
+  object btnLoad: TButton
+    Left = 325
+    Top = 472
+    Width = 75
+    Height = 25
+    Anchors = [akRight, akBottom]
+    Caption = 'Load'
+    TabOrder = 8
+    OnClick = btnLoadClick
   end
   object odLoadFile: TOpenDialog
     Left = 153

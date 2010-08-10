@@ -1,0 +1,83 @@
+;EasyChange section: do not delete
+;@GM@ P,cspath,D:\DATI\Borland
+;@GM@ S,appname,test_release
+;@GM@ B,sdram,True,"do sdram",";do sdram"
+;@GM@ B,flash,False,"do flash",";do flash"
+;@GM-END@
+
+pmacro.res
+cd ~~/gio
+global &appname
+global &cspath
+global &cmdonline
+;@GM@ &cspath="@%cspath@%"
+&cspath="D:\DATI\Borland"
+;@GM@ &appname="@%appname@%.elf" 
+&appname="test_release.elf" 
+stop
+dialog.end
+do start-cpu
+
+;@GM@ @%sdram@%
+do sdram
+;do sympath
+;@GM@ @%falsh@%
+do flash
+enddo
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

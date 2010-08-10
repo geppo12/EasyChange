@@ -7,6 +7,11 @@ uses
   Classes,
   Contnrs;
 
+
+{ se definito emette ulteriori informazioni di debug circa la composizione del
+  file }
+{$DEFINE EXTENDED_DEBUG}
+
 resourcestring
   kInvalidStringStr = 'Stringa ''%s'' invalida';
 
@@ -90,7 +95,7 @@ type
     destructor Destroy; override;
     procedure Add(const ACh: char); inline;
     procedure Clear;
-    function ToString: String; inline;
+    function ParamAsString: String; inline;
     function IsEmpty: Boolean; inline;
 
     property Completed: Boolean read FCompleted;
@@ -130,7 +135,7 @@ type
     procedure Parse(const AString: TECSplittedString);
     procedure Clear;
     procedure ValuesAssignTo(AList: TStrings); inline;
-    function ToString: string;
+    function ValueAsString: string;
     {* nome della proprietà }
     property Name: string read FName;
     {* documnetazione della proprità }
@@ -161,6 +166,7 @@ type
     FBodyIndex: Integer;
     FInvalidString: Integer;
     FDocName: string;
+    FFileName: string;
 
     function getValue(AIndex: Integer): TECValue; inline;
     function getCount: Integer;
@@ -176,7 +182,7 @@ type
     procedure LoadFromFile(AName: string);
     {* Salva il file modificato
        @AName: nome del file da salvare }
-    procedure SaveToFile(AName: string); inline;
+    procedure SaveToFile(AName: string = ''); inline;
     {* Effettua tutte le sostituzioni }
     procedure ReplaceAll;
 
@@ -184,6 +190,7 @@ type
     property ValueList: TECValueList read FValueList;
     property InvalidString: Integer read FInvalidString;
     property Count: Integer read getCount;
+    property FileName: string read FFileName;
   end;
 
 
@@ -224,12 +231,11 @@ end;
 { TECStringBuilder ----------------------------------------------------------- }
 
 procedure TECParamBuilder.addName(ACh: char);
-begin
-  if FCompleted then
+begin  if FCompleted then
     Exit;
 
-  if ((Ord(ACh) or $20) in [$61..$7a]) or
-      (ACh in [#$30..#$39,#$5f])  then
+  if CharInSet(Char(Ord(ACh) or $20),[#$61..#$7a]) or
+      CharInSet(ACh,[#$30..#$39,#$5f]) then
     FStringBuilder.Add(ACh)
   else if ACh = ',' then
     FCompleted := True;
@@ -299,7 +305,7 @@ begin
 end;
 
 { INLINE }
-function TECParamBuilder.ToString: string;
+function TECParamBuilder.ParamAsString: string;
 begin
   Result := FStringBuilder.Text;
 end;
@@ -350,18 +356,15 @@ begin
       case LStato of
         0: { Kind }
           begin
-            { determino il kind (non e' bellissimo qui, ma e' breve) }
+            { determino il kind  }
             if FKind = vkUnknown then begin
-              if LCh = 'S' then
-                FKind := vkString
-              else if LCh = 'P' then
-                FKind := vkPath
-              else if Lch = 'F' then
-                FKind := vkFile
-              else if LCh = 'B' then
-                FKind := vkBoolean
-              else if LCh = 'M' then
-                FKind := vkMultiple
+              case LCh of
+                'S': FKind := vkString;
+                'P': FKind := vkPath;
+                'F': FKind := vkFile;
+                'B': FKind := vkBoolean;
+                'M': FKind := vkMultiple;
+              end;
             end;
             { quando trovo la virola passo allo stato succcessivo }
             if LCh = ',' then begin
@@ -385,7 +388,7 @@ begin
               case LStato of
                 1: begin
                      { name }
-                     FName := LParamBuilder.ToString;
+                     FName := LParamBuilder.ParamAsString;
                      LParamBuilder.StringType := stValue;
                      LStato := 2;
                    end;
@@ -393,7 +396,7 @@ begin
                      { value }
                      { nota qui uso una variabile transitoria perche' non abbiano
                        ancora caricato la tabeòòa delle opzioni (se esiste) }
-                     LOptionName := LParamBuilder.ToString;
+                     LOptionName := LParamBuilder.ParamAsString;
                      if Kind = vkMultiple then
                        LParamBuilder.StringType := stPair
                      else
@@ -418,9 +421,9 @@ begin
                   LParamBuilder.Add(LCh);
                   if LParamBuilder.Completed and (LValueIdx <= 1) then begin
                     if LValueIdx = 0 then
-                      LValueName := 'True'+'='+LParamBuilder.ToString
+                      LValueName := 'True'+'='+LParamBuilder.ParamAsString
                     else
-                      LValueName := 'False'+'='+LParamBuilder.ToString;
+                      LValueName := 'False'+'='+LParamBuilder.ParamAsString;
                     FValueList.Add(LValueName);
                     LParamBuilder.Clear;
                     Inc(LValueIdx);
@@ -431,7 +434,7 @@ begin
                 begin
                   LParamBuilder.Add(LCh);
                   if LParamBuilder.Completed then begin
-                    FValueList.Add(LParamBuilder.ToString);
+                    FValueList.Add(LParamBuilder.ParamAsString);
                     LParamBuilder.Clear;
                   end;
                 end;
@@ -505,14 +508,31 @@ begin
 end;
 
 {$IFDEF EXTENDED_DEBUG}
-procedure TECValue.Trace;
+
+(*
 var
-  LList: TStringList;
+  LContext: TSiInspectorViewerContext;
   LKindName: string;
 begin
-  LList := nil;
+  // Create a custom inspector viewer context.
+  LContext := TSiInspectorViewerContext.Create;
   try
-    LList := TStringList.Create;
+    LContext.StartGroup('Fields');
+    InternalLogRecord(LContext);
+    SiMain.LogCustomContext(lvDebug,ATitle + ' [Class: ' + ClassName + ']', ltText, LContext);
+  finally
+    LContext.Free;
+  end;
+end;
+*)
+procedure TECValue.Trace;
+var
+  I: Integer;
+  LContext: TSiInspectorViewerContext;
+  LKindName: string;
+begin
+  LContext := TSiInspectorViewerContext.Create;
+  try
     case FKind of
       vkString: LKindName := 'vkString';
       vkPath: LKindName := 'vkPath';
@@ -523,18 +543,22 @@ begin
         LKindName := '*** UNKNOWN ***';
     end;
 
-    LList.Add('LineHeader: '+FLineHeader);
-    LList.Add('KindName: '+LKindName);
-    LList.Add('OptionName: '+OptionName);
-    LList.Add('Value: '+Value);
+    LContext.StartGroup('Info');
+    LContext.AppendKeyValue('LineHeader',FLineHeader);
+    LContext.AppendKeyValue('KindName',LKindName);
+    LContext.AppendKeyValue('OptionName',OptionName);
+    LContext.AppendKeyValue('Value',Value);
+
+
     if FValueList <>  nil then begin
-      LList.Add('----- Value List -----');
-      LList.AddStrings(FValueList);
+      LContext.StartGroup('ValueList');
+      for I := 0 to FValueList.Count - 1 do
+        LContext.AppendkeyValue('Value.'+IntToStr(I),FValueList[I]);
     end;
 
-    SiMain.LogStringList(lvDebug,Format('TECValue Dump ''%s''',[FName]),LList);
+    SiMain.LogCustomContext(lvDebug,Format('TECValue Dump ''%s''',[FName]), ltText, LContext);
   finally
-    LList.Free;
+    LContext.Free;
   end;
 end;
 {$ENDIF}
@@ -563,7 +587,7 @@ begin
 end;
 
 { B,prova,true,true,false }
-function TECValue.ToString: string;
+function TECValue.ValueAsString: string;
 var
   I: Integer;
   LKindChar: Char;
@@ -576,7 +600,7 @@ var
   begin
     LListEsc.Clear;
     for _LCh in AString do begin
-      if _LCh in [kEscapeChar,','] then
+      if CharInSet(_LCh,[kEscapeChar,',']) then
         LListEsc.Add(kEscapeChar);
 
       LListEsc.Add(_LCh);
@@ -613,7 +637,7 @@ begin
     Result := FLineHeader + ' ' + LList.CommaText;
     if FLinetail <> '' then
       Result := Result + ' ' + FLineTail;
-    SiMain.LogDebug('TECValue: ToString = %s',[Result]);
+    SiMain.LogDebug('TECValue: ValueAsString = %s',[Result]);
   finally
     LList.Free;
     LListEsc.Free;
@@ -661,7 +685,7 @@ var
   LDocString: string;
   LValue: TECValue;
 begin
-  { prendo il nome e la tringa di documenatzione dell'entry }
+  { prendo il nome e la stringa di documentazione dell'entry }
   LPos := Pos(kDocSeparator,AString);
   if LPos > 0 then begin
     LName := LeftStr(AString,LPos-1);
@@ -736,6 +760,7 @@ var
   LTerminate: Boolean;
 begin
   try
+    FFileName := AName;
     FDataFile.LoadFromFile(AName);
     FValueList.Clear;
 
@@ -759,9 +784,9 @@ begin
 
         try
           LValue.Parse(LSplit);
-  {$IFDEF EXTENDED_DEBUG}
+{$IFDEF EXTENDED_DEBUG}
           LValue.Trace;
-  {$ENDIF}
+{$ENDIF}
           FValueList.Add(LValue);
           LValue := nil;
           { ho trovato almeno un entry valida, ora ho bisogno di un marker di fine }
@@ -776,7 +801,7 @@ begin
       LSplit.EndStr := kStrEnd;
 
       if splitString(LSplit,FDataFile.Strings[FBodyIndex]) then
-        { NOTA: le stringe di documentazione sono immutabili rispetto al tool
+        { NOTA: le stringhe di documentazione sono immutabili rispetto al tool
                 quindi non conservo informazioni aggiuntive }
         addDocEntry(Trim(LSplit.ContentStr));
 
@@ -803,44 +828,62 @@ end;
 { INLINE }
 procedure TECDataFile.SaveToFile(AName: string);
 begin
+  if AName = '' then
+    AName := FFileName;
   FDataFile.SaveToFile(AName);
 end;
 
 procedure TECDataFile.ReplaceAll;
 var
-  I,
-  J: Integer;
+  J,
+  LCurrentLineIdx: Integer;
   LTerminated: Boolean;
   LNewString: string;
   LSplit: TECSplittedString;
 
 {$IFDEF EXTENDED_DEBUG}
-  dbgStringList: TStringList;
   dbgI: Integer;
+  dbgStringList: TStringList;
 {$ENDIF}
 begin
-  { write header
-    NOTA: si tratta di una modifica, non di una generazione }
-  for I := 0 to FValueList.Count - 1 do begin
-    FDataFile.Strings[I] := FValueList.Values[I].ToString;
-{$IFDEF EXTENDED_DEBUG}
-    try
-      dbgStringList := TStringList.Create;
-      for dbgI := 0 to dbgStringList.Count - 1 do
-        dbgStringList.Strings[dbgI] := FValueList.Values[dbgI].ToString;
-      SiMain.LogStringList(lvDebug,'Header Trace',dbgStringList);
-    finally
-      dbgStringList.Free;
+  { Write header
+    Si tratta di una modifica, non di una generazione. Cambio solo le linee
+    con il marker perche prima potrebbero esserci delle linee "normali" }
+
+  LCurrentLineIdx := 0;
+  J := 0;
+  LTerminated := false;
+  while (LCurrentLineIdx < FDataFile.Count) and not LTerminated  do begin
+    { verifico se devo fare l'aggioramento di un valore all' interno dell' header }
+    if (Pos(kStrHeader,FDataFile.Strings[LCurrentLineIdx]) > 0) and
+       (J < FValueList.Count) then begin
+      FDataFile.Strings[LCurrentLineIdx] := FValueList.Values[J].ValueAsString;
+      Inc(J);
     end;
-{$ENDIF}
+    { verifico se trovo il marker di fine }
+    if Pos(kFileHeaderEnd,FDataFile.Strings[LCurrentLineIdx]) > 0 then
+      LTerminated := true;
+    Inc(LCurrentLineIdx);
   end;
+
+{$IFDEF EXTENDED_DEBUG}
+  dbgStringList := TStringList.Create;
+  try
+    for dbgI := 0 to FValueList.Count - 1 do
+      dbgStringList.Add(FDataFile.Strings[dbgI]);
+    SiMain.LogStringList(lvDebug,Format('Header Trace (cnt=%d)',[dbgStringList.Count]),dbgStringList);
+  finally
+    dbgStringList.Free;
+  end;
+{$ENDIF}
   { cambio il file }
-  { vedo se ho una linea marcata }
-  I := FValueList.Count;
+  { vedo se ho una linea marcata.
+    Nota il valore di LCurrentLineIdx è quello rimasto impostato dall' operazione
+    precedente, in modo che processiamo la prima linea successiva all'header }
   repeat
     LSplit.StartStr := kStrHeader;
     LSplit.EndStr   := kStrEnd;
-    if splitString(LSplit,FDataFile.Strings[I]) then begin
+    if splitString(LSplit,FDataFile.Strings[LCurrentLineIdx]) then begin
       J := 0;
       LTerminated := False;
       while (J < FValueList.Count) and not LTerminated do begin
@@ -852,15 +895,15 @@ begin
           LTerminated := True;
         Inc(J);
       end;
-        Inc(I);
+        Inc(LCurrentLineIdx);
 
-      if FDataFile.Count = I then
+      if FDataFile.Count = LCurrentLineIdx then
         FDataFile.Add(LNewString)
       else
-        FDataFile.Strings[I] := LNewString;
+        FDataFile.Strings[LCurrentLineIdx] := LNewString;
     end;
-    Inc(I);
-  until I = FDataFile.Count;
+    Inc(LCurrentLineIdx);
+  until LCurrentLineIdx = FDataFile.Count;
 end;
 
 end.

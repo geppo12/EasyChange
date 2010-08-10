@@ -20,8 +20,6 @@ const
 type
 
   TfmMain = class(TForm)
-    eFileName: TEdit;
-    btnSelect: TButton;
     btnOk: TButton;
     odLoadFile: TOpenDialog;
     cbMultiple: TComboBox;
@@ -31,10 +29,11 @@ type
     mDoc: TMemo;
     cbUseProject: TCheckBox;
     lbFiles: TListBox;
+    btnLoad: TButton;
     procedure btnExitClick(Sender: TObject);
+    procedure btnLoadClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure btnPathClick(Sender: TObject);
-    procedure btnSelectClick(Sender: TObject);
     procedure cbMultipleSelect(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -63,6 +62,7 @@ type
     function getCurrentDataFile: TECDataFile;
     procedure showValues;
     procedure clearGridSel;
+    procedure doLoadProject(AFileName: string);
     procedure doLoad(AFileName: string);
     procedure doDrop(var AMsg: TWMDropFiles);
     procedure closeEditing(AData: string);
@@ -87,6 +87,7 @@ implementation
 uses
   SiAuto,
   SmartInspect,
+  IniFiles,
   StrUtils,
   ShellApi,
   UFileVersion;
@@ -104,6 +105,10 @@ const
   kWidthMargin = 3;
   kTrueStr = 'True';
   kFalseStr = 'False';
+
+  kIniSecFilesStr = 'Files';
+  kIniValueCountStr = 'Count';
+  kIniValueFileStr = 'Name';
 
 procedure MsgBox(const AMessage: string);
 begin
@@ -217,6 +222,27 @@ begin
   ActiveControl := sgProperty;
 end;
 
+procedure TfmMain.doLoadProject(AFileName: string);
+var
+  LIniFile: TIniFile;
+  LFileName: string;
+  LCount: Integer;
+  I: Integer;
+begin
+  LIniFile := nil;
+  try
+    LIniFile := TIniFile.Create(AFileName);
+    LCount := LIniFile.ReadInteger(kIniSecFilesStr,kIniValueCountStr,0);
+    for I := 0 to LCount - 1 do begin
+      LFileName := LIniFile.ReadString(kIniSecFilesStr,kIniValueFileStr+IntToStr(I),'');
+      if LFileName <> '' then
+        FFiles.Add(LFileName);
+    end;
+  finally
+    LIniFile.Free;
+  end;
+end;
+
 procedure TfmMain.doLoad(AFileName: string);
 var
   I: Integer;
@@ -225,15 +251,21 @@ begin
   clear;
   LDataFile := TECDataFile.Create;
   if (ExtractFileExt(AFileName) = kProjectExt) and cbUseProject.Checked then begin
-    FFiles.LoadFromFile(AFileName);
+    doLoadProject(AFileName);
+    { creo tutti i file }
     for I := FFiles.Count - 1 downto 0 do begin
+      SiMain.LogVerbose('Load File: %s',[FFiles[I]]);
       LDataFile.LoadFromFile(FFiles[I]);
       if LDataFile.Count <> 0 then begin
+        { e li aggiungo come oggetti alla lista }
         lbFiles.AddItem(ExtractFilename(FFiles[I]),LDataFile);
         LDataFile := TECDataFile.Create;
       end else
         FFiles.Delete(I);
     end;
+    { Cancello l' oggetto appena creato. Il ciclo crea un nuovo oggetto dopo aver
+      aggiunto quello attivo, ma se il ciclo finisce un oggetto viene creato
+      inutilmente e quindi va cancellato }
     LDataFile.Free;
     lbFiles.ItemIndex := 0;
     showValues;
@@ -375,6 +407,134 @@ begin
 end;
 
 
+procedure TfmMain.FormCreate(Sender: TObject);
+begin
+  { Abilitazione SmartInspect }
+  siLocalInit;
+  SiMain.LogMessage('Start EasyChange %s',[VersionInformation(k4DigitPlain)]);
+  SiMain.LogSystem;
+  FEditingRow := -1;
+  FFiles := TStringList.Create;
+  if ParamCount = 0 then begin
+    DragAcceptFiles(Handle,true);
+    FOldWndProc := WindowProc;
+    WindowProc := newWndProc;
+  end;
+end;
+
+procedure TfmMain.FormDestroy(Sender: TObject);
+begin
+  FFiles.Free;
+  SiMain.LogMessage('Close EasyChange');
+end;
+
+procedure TfmMain.btnLoadClick(Sender: TObject);
+begin
+  if odLoadFile.Execute then
+    doLoad(odLoadFile.Filename);
+end;
+
+
+procedure TfmMain.btnExitClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfmMain.btnOkClick(Sender: TObject);
+var
+  LDataFile: TECDataFile;
+  I: Integer;
+begin
+  for I := 0 to lbFiles.Count - 1 do begin
+    LDataFile := lbFiles.Items.Objects[I] as TECDataFile;
+    if LDataFile.FileName <> '' then begin
+      createBackup(LDataFile.FileName);
+      { effettuo le sostituzioni all interno del file }
+      LDataFile.ReplaceAll;
+      { salvo i dati nel file, visto che il nome non e' specificato usa quello
+        con cui e' stato aperto il file }
+      LDataFile.SaveToFile;
+    end;
+  end;
+end;
+
+procedure TfmMain.btnPathClick(Sender: TObject);
+var
+  LOptions: TSelectDirExtOpts;
+  LValidDir: Boolean;
+  LDir: string;
+begin
+  if not FSelectFile then begin
+    LDir := FLastDir;
+    LOptions := [sdNewFolder];
+    LValidDir := SelectDirectory(Application.Title,WideString(''),LDir,
+      LOptions, Self);
+    if LValidDir then begin
+      FLastDir := LDir;
+      closeEditing(LDir);
+    end;
+  end else begin
+    odLoadFile.InitialDir := FLastDir;
+    if odLoadFile.Execute then
+      closeEditing(odLoadFile.FileName);
+  end;
+end;
+
+procedure TfmMain.cbMultipleSelect(Sender: TObject);
+begin
+  closeEditing(cbMultiple.Items[cbMultiple.ItemIndex]);
+  setCtrlVisible(vkUnknown);
+end;
+
+{ per effettuare un refresh con F5 }
+procedure TfmMain.FormKeyDown(Sender: TObject; var Key: Word; Shift:
+    TShiftState);
+var
+  LIndex: Integer;
+begin
+  LIndex := lbFiles.ItemIndex;
+  if LIndex >= 0 then begin
+    if (Key = VK_F5) and FileExists(FFiles[LIndex]) then
+      doLoad(FFiles[LIndex]);
+  end;
+end;
+
+procedure TfmMain.FormResize(Sender: TObject);
+var
+  LWidth: Integer;
+begin
+  LWidth := sgProperty.Width div 2;
+  sgProperty.ColWidths[0] := LWidth-kWidthMargin;
+  sgProperty.ColWidths[1] := LWidth-kWidthMargin;
+  mDoc.Top := sgProperty.Top + sgProperty.Height + kHeightMargin;
+
+end;
+
+procedure TfmMain.FormShow(Sender: TObject);
+begin
+  clearGridSel;
+  Caption := Caption + ' V'+VersionInformation(k4DigitPlain);
+{$IFDEF _BETA_VERSION}
+  Caption := Caption + ' Beta';
+{$ENDIF}
+end;
+
+procedure TfmMain.lbFilesClick(Sender: TObject);
+begin
+  if lbFiles.ItemIndex >= 0 then begin
+    resetControls;
+    showValues;
+  end else
+    clearGrid
+end;
+
+procedure TfmMain.sgPropertySetEditText(Sender: TObject; ACol, ARow: Integer;
+    const Value: string);
+begin
+  if not sgProperty.EditorMode then
+    closeEditing(sgProperty.Cols[1].Strings[ARow]);
+end;
+
 procedure TfmMain.sgPropertySelectCell(Sender: TObject; ACol, ARow: Integer;
   var CanSelect: Boolean);
 var
@@ -447,140 +607,6 @@ begin
     end; { end 'LValue <> nil' }
   end else
     cbMultiple.Visible := False;
-end;
-
-procedure TfmMain.FormCreate(Sender: TObject);
-begin
-  { Abilitazione SmartInspect }
-  siLocalInit;
-  SiMain.LogMessage('Start EasyChange %s',[VersionInformation(k4DigitPlain)]);
-  SiMain.LogSystem;
-  FEditingRow := -1;
-  FFiles := TStringList.Create;
-  if ParamCount = 0 then begin
-    DragAcceptFiles(Handle,true);
-    FOldWndProc := WindowProc;
-    WindowProc := newWndProc;
-  end;
-end;
-
-procedure TfmMain.FormDestroy(Sender: TObject);
-begin
-  FFiles.Free;
-  SiMain.LogMessage('Close EasyChange');
-end;
-
-procedure TfmMain.btnSelectClick(Sender: TObject);
-begin
-  if odLoadFile.Execute then
-    doLoad(odLoadFile.Filename);
-end;
-
-procedure TfmMain.btnExitClick(Sender: TObject);
-begin
-  Close;
-end;
-
-procedure TfmMain.btnOkClick(Sender: TObject);
-var
-  LDataFile: TECDataFile;
-begin
-  if lbFiles.ItemIndex >= 0 then begin
-    if FileExists(FFiles[lbFiles.ItemIndex]) then begin
-      createBackup(FFiles[lbFiles.ItemIndex]);
-      LDataFile := getCurrentDataFile;
-      LDataFile.ReplaceAll;
-      LDataFile.SaveToFile(FFiles[lbFiles.ItemIndex]);
-      if ParamCount = 1 then
-        Close;
-    end;
-  end;
-end;
-
-procedure TfmMain.btnPathClick(Sender: TObject);
-var
-  LOptions: TSelectDirExtOpts;
-  LValidDir: Boolean;
-  LDir: string;
-begin
-  if not FSelectFile then begin
-    LDir := FLastDir;
-    LOptions := [sdNewFolder];
-    LValidDir := SelectDirectory(Application.Title,WideString(''),LDir,
-      LOptions, Self);
-    if LValidDir then begin
-      FLastDir := LDir;
-      closeEditing(LDir);
-    end;
-  end else begin
-    odLoadFile.InitialDir := FLastDir;
-    if odLoadFile.Execute then
-      closeEditing(odLoadFile.FileName);
-  end;
-end;
-
-procedure TfmMain.cbMultipleSelect(Sender: TObject);
-begin
-  closeEditing(cbMultiple.Items[cbMultiple.ItemIndex]);
-  setCtrlVisible(vkUnknown);
-end;
-
-{ per effettuare un refresh con F5 }
-procedure TfmMain.FormKeyDown(Sender: TObject; var Key: Word; Shift:
-    TShiftState);
-var
-  LIndex: Integer;
-begin
-  LIndex := lbFiles.ItemIndex;
-  if LIndex >= 0 then begin
-    if (Key = VK_F5) and FileExists(FFiles[LIndex]) then
-      doLoad(FFiles[LIndex]);
-  end;
-end;
-
-procedure TfmMain.FormResize(Sender: TObject);
-var
-  LWidth: Integer;
-begin
-  LWidth := sgProperty.Width div 2;
-  sgProperty.ColWidths[0] := LWidth-kWidthMargin;
-  sgProperty.ColWidths[1] := LWidth-kWidthMargin;
-  mDoc.Top := sgProperty.Top + sgProperty.Height + kHeightMargin;
-
-end;
-
-procedure TfmMain.FormShow(Sender: TObject);
-begin
-  clearGridSel;
-  Caption := Caption + ' V'+VersionInformation(k4DigitPlain);
-{$IFDEF _BETA_VERSION}
-  Caption := Caption + ' Beta';
-{$ENDIF}
-
-  if ParamCount > 0 then begin
-    with sgProperty do
-      Height := Height + Top - eFilename.Top;
-    sgProperty.Top := eFileName.Top;
-    eFileName.Visible := False;
-    btnSelect.Visible := False;
-    doLoad(ParamStr(1));
-  end;
-end;
-
-procedure TfmMain.lbFilesClick(Sender: TObject);
-begin
-  if lbFiles.ItemIndex >= 0 then begin
-    resetControls;
-    showValues;
-  end else
-    clearGrid
-end;
-
-procedure TfmMain.sgPropertySetEditText(Sender: TObject; ACol, ARow: Integer;
-    const Value: string);
-begin
-  if not sgProperty.EditorMode then
-    closeEditing(sgProperty.Cols[1].Strings[ARow]);
 end;
 
 
