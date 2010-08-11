@@ -62,7 +62,6 @@ type
     function getCurrentDataFile: TECDataFile;
     procedure showValues;
     procedure clearGridSel;
-    function validateData(AValue: TECValue; ANewValue: string): Boolean;
     procedure doLoadProject(AFileName: string);
     procedure doLoad(AFileName: string);
     procedure doDrop(var AMsg: TWMDropFiles);
@@ -223,23 +222,6 @@ begin
   ActiveControl := sgProperty;
 end;
 
-function TfmMain.validateData(AValue: TECValue; ANewValue: string): Boolean;
-var
-  LIntData: Integer;
-begin
-  Result := False;
-  if AValue.Kind = vkRange then
-    try
-      LIntData := StrToInt(ANewValue);
-      if (LIntData >= AValue.MinValue) and (LIntData <= AValue.MaxValue) then
-         Result := True;
-    except
-      on EConvertError do ;
-    end
-  else
-    Result := True;
-end;
-
 procedure TfmMain.doLoadProject(AFileName: string);
 var
   LIniFile: TIniFile;
@@ -320,12 +302,15 @@ begin
     with sgProperty.Cols[1] do begin
       SiMain.LogDebug('Close line');
       LValue := Objects[FEditingRow] as TECValue;
-      if validateData(Lvalue,AData) then begin
-        Strings[FEditingRow] := AData;
+      try
         LValue.OptionName := AData;
-      end else
-        Strings[FEditingRow] := LValue.Value;
-
+        Strings[FEditingRow] := AData;
+      except
+        on E: EECInvalidValue do begin
+          SiMain.LogWarning('Lvalue Assign fail: %s',[E.Message]);
+          Strings[FEditingRow] := LValue.Value;
+        end;
+      end;
       clearGridSel;
       FEditingRow := -1;
     end else
