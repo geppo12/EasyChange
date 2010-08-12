@@ -200,7 +200,7 @@ begin
       { NOTA: 1 e' la colonna di destra }
       LRow.Objects[1] := LValue;
       LRow.Add(LValue.Name);
-      LRow.Add(LValue.OptionName);
+      LRow.Add(LValue.Value);
     end;
   except
     { su questa eccezione non fa niente }
@@ -220,6 +220,8 @@ begin
   LRect.Bottom := -1;
   sgProperty.Selection := LRect;
   ActiveControl := sgProperty;
+  { uso vkUnknown come alias si un ipotetico vkNone }
+  setCtrlVisible(vkUnknown);
 end;
 
 procedure TfmMain.doLoadProject(AFileName: string);
@@ -303,7 +305,7 @@ begin
       SiMain.LogDebug('Close line');
       LValue := Objects[FEditingRow] as TECValue;
       try
-        LValue.OptionName := AData;
+        LValue.Value := AData;
         Strings[FEditingRow] := AData;
       except
         on E: EECInvalidValue do begin
@@ -313,8 +315,9 @@ begin
       end;
       clearGridSel;
       FEditingRow := -1;
-    end else
-      SiMain.LogDebug('No line to close');
+    end
+  else
+    SiMain.LogDebug('No line to close');
 end;
 
 procedure TfmMain.setControlPos(ARect: TRect; ACtrl: TControl);
@@ -576,9 +579,9 @@ begin
             cbMultiple.Items.Add('True');
             cbMultiple.Visible := True;
 
-            if LValue.OptionName = kTrueStr then
+            if LValue.Value = kTrueStr then
               cbMultiple.ItemIndex := 1
-            else if LValue.OptionName = kFalseStr then
+            else if LValue.Value = kFalseStr then
               cbMultiple.ItemIndex := 0;
             CanSelect := False;
           end;
@@ -586,21 +589,23 @@ begin
         vkMultiple: begin
             { posiziono il combo box nella posizione opportuna }
             setControlPos(LRect,cbMultiple);
-            LValue.ValuesAssignTo(cbMultiple.Items);
-            SiMain.LogInteger('FORM: LValue.ActualValueIdx',LValue.ActualValueIdx);
-            cbMultiple.ItemIndex := LValue.ActualValueIdx;
-            cbMultiple.Visible := True;
+            with LValue as TECValueMulti do begin
+              ValuesAssignTo(cbMultiple.Items);
+              SiMain.LogInteger('FORM: LValue.ActualValueIdx',ActualValueIdx);
+              cbMultiple.ItemIndex := ActualValueIdx;
+              cbMultiple.Visible := True;
+            end;
           end;
 
         vkFile: begin
             FSelectFile := True;
-            FLastDir := ExtractFilePath(LValue.OptionName);
+            FLastDir := ExtractFilePath(LValue.Value);
             setControlPos(LRect,btnPath);
             CanSelect := True;
           end;
 
         vkPath: begin
-            FLastDir := LValue.OptionName;
+            FLastDir := LValue.Value;
             setControlPos(LRect,btnPath);
             CanSelect := True;
           end;

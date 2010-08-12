@@ -1,3 +1,8 @@
+1.1.0.17
+NEW Subclass della classe TECValue
+NEW Nuova classe 'R' Range
+FIX alcuni fix interni minori
+
 1.1.0.10
 NEW Implementata la modalità multifile
 FIX corretta la gestione delle linee arbitrarie prima dell'header

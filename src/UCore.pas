@@ -9,7 +9,6 @@ uses
   Classes,
   Contnrs;
 
-
 { se definito emette ulteriori informazioni di debug circa la composizione del
   file }
 {$DEFINE EXTENDED_DEBUG}
@@ -115,18 +114,18 @@ type
     property StringType: TECStringType read FStringType write setStringType;
   end;
 
-  //* valore, rappresenta una stringe dell' header
+  {* valore, rappresenta una stringe dell' header }
 
   TECValue = class
+    strict private
+    FValue: string;
+
     private
     FName: string;
     FDocs: string;
-    FValueList: TStringList;
-    FValue: string;
-    FOptionName: string;
-    //* parte iniziale di una linea di testo usata per la rigenerazione del file
+    {* parte iniziale di una linea di testo usata per la rigenerazione del file }
     FLineHeader: string;
-    //* parte terminale di una linea usata per le rigenerazione del testo
+    {* parte terminale di una linea usata per le rigenerazione del testo }
     FLineTail: string;
     FKind: TECValueKind;
     procedure parseInternal(AString: string);
@@ -134,11 +133,16 @@ type
 
     { property access }
     function getNameMagic: string; inline;
-    function getOptions(AIndex: Integer): string; inline;
-    function getActualValueIdx: Integer; inline;
-    procedure setOptionName(AName: string);
-    function getOptionName: string;
+    {* Imposta il valore
+       @param AValue: valore attuale  }
+    procedure setValue(AValue: string); inline;
+
     protected
+    FParamBuilderType: TECStringType;
+
+    {* Ritorna il valore attuale, il valore ritornato dipende dalla sottoclasse
+       @returns valore dell'oggetto TECValue }
+    function getInternalValue: string; virtual;
 {$IFDEF EXTENDED_DEBUG}
     procedure internalTrace(AContext: TSiInspectorViewerContext); virtual;
 {$ENDIF}
@@ -157,23 +161,17 @@ type
     public
     class function CreateValue(ASplittedString: TECSplittedString): TECValue;
     constructor Create(AKind: TECValueKind);
-    destructor Destroy; override;
 {$IFDEF EXTENDED_DEBUG}
     procedure Trace;
 {$ENDIF}
     procedure Parse(const AString: TECSplittedString);
-    procedure Clear;
-    procedure ValuesAssignTo(AList: TStrings); inline;
     function ValueAsString: string;
     {* nome della proprietà }
     property Name: string read FName;
     {* documnetazione della proprità }
     property Docs: string read FDocs write FDocs;
     property NameMagic: string read getNameMagic;
-    property Options[AIdx: Integer]: string read getOptions;
-    property Value: string read FValue;
-    property OptionName: string read getOptionName write setOptionName;
-    property ActualValueIdx: Integer read getActualValueIdx;
+    property Value: string read FValue write setValue;
     property Kind: TECValueKind read FKind;
   end;
 
@@ -192,6 +190,30 @@ type
 
     public
     constructor Create;
+  end;
+
+  TECValueMulti = class(TECValue)
+    private
+    FOptionList: TStringList;
+
+    function getActualValueIdx: Integer; inline;
+    function getOptions(AIndex: Integer): string; inline;
+
+    protected
+    function getInternalValue: string; override;
+
+{$IFDEF EXTENDED_DEBUG}
+    procedure internalTrace(AContext: TSiInspectorViewerContext); override;
+{$ENDIF}
+    procedure valueStringFactory(AList: TStringList); override;
+    procedure updateSpecificData(AParamBuilder: TECParamBuilder); override;
+
+    public
+    constructor Create(AKind: TECValueKind);
+    destructor Destroy; override;
+    procedure ValuesAssignTo(AList: TStrings); inline;
+    property ActualValueIdx: Integer read getActualValueIdx;
+    property Options[AIdx: Integer]: string read getOptions;
   end;
 
   TECValueList = class(TObjectList)
@@ -254,8 +276,7 @@ uses
   TypInfo,
   StrUtils;
 
-{ Exceptions ----------------------------------------------------------------- }
-
+{$REGION 'Exceptions'}
 constructor EECException.Create(const AMsg: string);
 begin
   inherited Create(AMsg);
@@ -285,9 +306,9 @@ constructor EECInvalidValue.Create(const AMsg: string);
 begin
   inherited Create(AMsg);
 end;
+{$ENDREGION}
 
-{ TECStringBuilder ----------------------------------------------------------- }
-
+{$REGION 'TECStringBuilder'}
 procedure TECParamBuilder.addName(ACh: char);
 begin  if FCompleted then
     Exit;
@@ -385,8 +406,9 @@ function TECParamBuilder.IsEmpty: Boolean;
 begin
   Result := FStringBuilder.Count = 0;
 end;
+{$ENDREGION}
 
-{ TECValue ------------------------------------------------------------------- }
+{$REGION 'TECValue'}
 { qui ho la stringa su chi effettuare il parser
 
   FORMATO STRING:
@@ -405,9 +427,6 @@ procedure TECValue.parseInternal(AString: string);
 var
   LParamBuilder: TECParamBuilder;
   LOptionName: string;
-  //LValueName: string;   #OC
-  //LAddValue: Boolean;
-  //LValueIdx,
   LStato: Integer;
   LFindComma,
   LNextState: Boolean;
@@ -416,7 +435,6 @@ begin
   LParamBuilder := TECParamBuilder.Create;
   try
     LStato := 0;
-    //LValueIdx := 0;   #OC
     LFindComma := False;
 
     { aggiungo una virgola dummy come terminatore }
@@ -448,25 +466,26 @@ begin
             LParamBuilder.Add(LCh);
             if LParamBuilder.Completed then begin
               case LStato of
+              { name }
                 1: begin
-                     { name }
                      FName := LParamBuilder.ParamAsString;
                      LParamBuilder.StringType := stValue;
                      LStato := 2;
                    end;
+
+                { value }
                 2: begin
-                     { value }
-                     { nota qui uso una variabile transitoria perche' non abbiano
-                       ancora caricato la tabeòòa delle opzioni (se esiste) }
-                     LOptionName := LParamBuilder.ParamAsString;
-                     if Kind = vkMultiple then
-                       LParamBuilder.StringType := stPair
-                     else
-                       LParamBuilder.StringType := stValue;
+                     { imposto la label attuale che può essere il valore vero
+                       e proprio oppure una label simbolica associata al valore }
+                     FValue := LParamBuilder.ParamAsString;
+
+                     { imposto il builder on il tipo di stringa relativa al tipo
+                       specifico di valore da processare }
+                     LParamBuilder.StringType := FParamBuilderType;
                      LParamBuilder.Reset;
                      LStato := 3;
                    end;
-              end; { case  }
+              end; { case interno }
             end; { end if }
           end; { end 2: }
 
@@ -477,12 +496,6 @@ begin
         end;
       end; { case }
     end;{ loop }
-
-    { ho finito la tabella delle opzioni (se esiste) e' completa quindi
-      imposto il nome dell'opzione e lascio la gestione all'handler della
-      property }
-
-    OptionName := LOptionName;
 
   finally
     LParamBuilder.Free;
@@ -508,63 +521,27 @@ begin
   Result := kStrMagicVar + FName + kStrMagicVar;
 end;
 
-{ INLINE }
-function TECValue.getOptions(AIndex: Integer): string;
+procedure TECValue.setValue(AValue: string);
 begin
-  Result := FValueList.Strings[AIndex];
-end;
-
-{ INLINE }
-function TECValue.getActualvalueIdx: Integer; 
-begin
-  if FKind in [vkPath,vkFile,vkString] then
-    raise EECInvalidIndex.Create;
-  Result := FValueList.IndexOf(FValue);
-
-  if FValueList.IndexOf(FValue) < 0 then
-    EECInvalidString.Create('valore non valido');
-end;
-
-procedure TECValue.setOptionName(AName: string);
-var
-  LValueIdx: Integer;
-begin
-  if validate(AName) then begin
-    if FKind in [vkBoolean,vkMultiple] then
-      FValue := FValueList.Values[AName]
-    else
-      { per i tipi vkString, vkPath, vkFile, vkRenge il valore corrisponde al nome }
-      FValue := AName;
-
-    FOptionName := AName;
-  end else
-    raise EECInvalidValue.Create(AName);
-end;
-
-function TECValue.getOptionName: string;
-begin
-  if FKind in [vkBoolean,vkMultiple] then
-    Result := FOptionName
+  SiMain.LogDebug('Name %s, Value = %s',[FName,AValue]);
+  if validate(AValue) then
+    FValue := AValue
   else
-    result := FValue;
+    raise EECInvalidValue.Create(AValue);
+end;
+
+function TECValue.getInternalValue: string;
+begin
+  Result := FValue;
 end;
 
 procedure TECValue.internalTrace(AContext: TSiInspectorViewerContext);
-var
-  I: Integer;
 begin
   AContext.StartGroup('Rooot Info');
   AContext.AppendKeyValue('LineHeader',FLineHeader);
   AContext.AppendKeyValue('KindName',GetEnumName(TypeInfo(TECValueKind),ord(FKind)));
-  AContext.AppendKeyValue('OptionName',OptionName);
-  AContext.AppendKeyValue('Value',Value);
-
-  Assert(FValueList <>  nil);
-  if FValueList.Count > 0 then begin
-    AContext.StartGroup('ValueList');
-    for I := 0 to FValueList.Count - 1 do
-      AContext.AppendkeyValue('Value.'+IntToStr(I),FValueList[I]);
-  end;
+  AContext.AppendKeyValue('Value',FValue);
+  AContext.AppendKeyValue('Internal Value',getInternalValue);
 end;
 
 function TECValue.validate(AData: String): Boolean;
@@ -575,56 +552,13 @@ begin
 end;
 
 procedure TECValue.valueStringFactory(AList: TStringList);
-var
-  I: Integer;
 begin
-  case FKind of
-    vkMultiple: begin
-      for I := 0 to FValueList.Count - 1 do
-        AList.Add(doEscape(FValueList.Strings[I]));
-    end;
-
-    vkBoolean:
-      if FValueList.Count >= 2 then begin
-        AList.Add(doEscape(FValueList.ValueFromIndex[0]));
-        AList.Add(doEscape(FValueList.ValueFromIndex[1]));
-      end;
-  end;
+  { implementata dai discendenti }
 end;
 
 procedure TECValue.updateSpecificData(AParamBuilder: TECParamBuilder);
-var
-  LAddValue: Boolean;
-  LValueName: string;
 begin
-  case FKind of
-    vkBoolean:
-      begin
-        if AParamBuilder.Completed and (AParamBuilder.ParamIndex <= 1) then begin
-          LAddValue := true;
-          case AParamBuilder.ParamIndex of
-            0: LValueName := 'True'+'='+AParamBuilder.ParamAsString;
-            1: LValueName := 'False'+'='+AParamBuilder.ParamAsString
-            else
-              LAddValue := False;
-          end;
-          if LAddValue then
-            FValueList.Add(LValueName);
-          AParamBuilder.NewParameter;
-        end;
-      end;
-
-      vkMultiple:
-        begin
-          if AParamBuilder.Completed then begin
-            FValueList.Add(AParamBuilder.ParamAsString);
-            AParamBuilder.NewParameter;
-          end;
-        end;
-  end;
-
-        begin
-   end; { case stato 3,4 }
+  { implementata dai discendenti }
 end;
 
 function TECValue.doEscape(AString: string): string;
@@ -657,11 +591,14 @@ begin
   LKind := getKind(ASplittedString.ContentStr);
   case LKind of
     vkUnknown: raise EECInvalidString.Create('Tipo di valore sconosciuto nell''header');
+
     vkString,
     vkPath,
-    vkFile,
+    vkFile:     Result := TECValue.Create(LKind);
+
     vkBoolean,
-    vkMultiple: Result := TECValue.Create(LKind);
+    vkMultiple: Result := TECValueMulti.Create(LKind);
+
     vkRange:    Result := TECValueRange.Create;
   end;
 
@@ -670,13 +607,8 @@ end;
 
 constructor TECValue.Create(AKind: TECValueKind);
 begin
-  FValueList := TStringList.Create;
   FKind := AKind;
-end;
-
-destructor TECValue.Destroy;
-begin
-  FValueList.Free;
+  FParamBuilderType := stValue;
 end;
 
 {$IFDEF EXTENDED_DEBUG}
@@ -700,24 +632,9 @@ end;
 procedure TECValue.Parse(const AString: TECSplittedString);
 begin
   SiMain.LogVerbose('VALUE: Str:''%s''',[AString.ContentStr]);
-  FValueList.QuoteChar := '''';
   FLineHeader := AString.StartStr;
   FLineTail   := AString.EndStr;
   parseInternal(AString.ContentStr);
-end;
-
-procedure TECValue.Clear;
-begin
-  FValueList.Clear;
-end;
-
-procedure TECValue.ValuesAssignTo(AList: TStrings);
-var
-  I: Integer;
-begin
-  AList.Clear;
-  for I := 0 to FValueList.Count - 1 do
-    AList.Add(FValueList.Names[I]);
 end;
 
 { B,prova,true,true,false }
@@ -742,7 +659,7 @@ begin
       vkRange:    LList.Add('R');
     end;
     LList.Add(FName);
-    LList.Add(FOptionName);
+    LList.Add(FValue);
     { aggiungo alla lista la parti relative ad ogni sottoclasse }
     valueStringFactory(LList);
 
@@ -756,8 +673,10 @@ begin
     LListEsc.Free;
   end;
 end;
+{$ENDREGION}
 
-{ TECValueRange -------------------------------------------------------------- }
+{$REGION 'TECValueRange'}
+{$IFDEF EXTENDED_DEBUG}
 procedure TECValueRange.internalTrace(AContext: TSiInspectorViewerContext);
 begin
   inherited;
@@ -765,6 +684,7 @@ begin
   AContext.AppendKeyValue('MaxVaue',FMaxValue);
   AContext.AppendKeyValue('MinVaue',FMinValue);
 end;
+{$ENDIF}
 
 function TECValueRange.validate(AString: string): Boolean;
 var
@@ -809,9 +729,122 @@ constructor TECValueRange.Create;
 begin
   inherited Create(vkRange);
 end;
+{$ENDREGION}
 
-{ TECValueList --------------------------------------------------------------- }
+{$REGION 'TECValueMulti'}
 
+{ INLINE }
+function TECValueMulti.getActualValueIdx: Integer;
+begin
+  Result := FOptionList.IndexOfName(Value);
+
+  if Result < 0 then
+    EECInvalidString.Create('valore non valido');
+end;
+
+{ INLINE }
+function TECValueMulti.getOptions(AIndex: Integer): string;
+begin
+  Result := FOptionList.Strings[AIndex];
+end;
+
+function TECValueMulti.getInternalValue: string;
+begin
+  { in questa classe il valore quello assocciato al nome dell'opzione nella
+    tabella delle opzioni }
+  Result := FOptionList.Values[Value];
+end;
+
+{$IFDEF EXTENDED_DEBUG}
+procedure TECValueMulti.internalTrace(AContext: TSiInspectorViewerContext);
+var
+  I: Integer;
+begin
+  inherited;
+  AContext.StartGroup('Multi Info');
+  for I := 0 to FOptionList.Count - 1 do
+    AContext.AppendkeyValue('Value.'+IntToStr(I),FOptionList[I]);
+end;
+{$ENDIF}
+
+procedure TECValueMulti.valueStringFactory(AList: TStringList);
+var
+  I: Integer;
+begin
+  case Kind of
+    vkMultiple: begin
+      for I := 0 to FOptionList.Count - 1 do
+        AList.Add(doEscape(FOptionList.Strings[I]));
+    end;
+
+    vkBoolean:
+      if FOptionList.Count >= 2 then begin
+        AList.Add(doEscape(FOptionList.ValueFromIndex[0]));
+        AList.Add(doEscape(FOptionList.ValueFromIndex[1]));
+      end;
+  end;
+end;
+
+procedure TECValueMulti.updateSpecificData(AParamBuilder: TECParamBuilder);
+var
+  LAddValue: Boolean;
+  LValueName: string;
+begin
+  case Kind of
+    vkBoolean:
+      begin
+        if AParamBuilder.Completed and (AParamBuilder.ParamIndex <= 1) then begin
+          LAddValue := true;
+          case AParamBuilder.ParamIndex of
+            0: LValueName := 'True'+'='+AParamBuilder.ParamAsString;
+            1: LValueName := 'False'+'='+AParamBuilder.ParamAsString
+            else
+              LAddValue := False;
+          end;
+          if LAddValue then
+            FOptionList.Add(LValueName);
+          AParamBuilder.NewParameter;
+        end;
+      end;
+
+      vkMultiple:
+        begin
+          if AParamBuilder.Completed then begin
+            FOptionList.Add(AParamBuilder.ParamAsString);
+            AParamBuilder.NewParameter;
+          end;
+        end;
+  end;
+end;
+
+constructor TECValueMulti.Create(AKind: TECValueKind);
+begin
+  inherited;
+  FOptionList := TStringList.Create;
+  { override del tipo di builder per il valore creato durante il parsing }
+  if AKind = vkMultiple then
+    FParamBuilderType := stPair;
+end;
+
+destructor TECValueMulti.Destroy;
+begin
+  FOptionList.Free;
+  inherited;
+end;
+
+procedure TECValueMulti.ValuesAssignTo(AList: TStrings);
+var
+  I: Integer;
+begin
+  AList.Clear;
+  for I := 0 to FOptionList.Count - 1 do
+    AList.Add(FOptionList.Names[I]);
+end;
+
+
+{$ENDREGION}
+
+{$REGION 'TECValueList'}
 { INLINE }
 function TECValueList.getValues(AIndex: Integer): TECValue;
 begin
@@ -830,8 +863,9 @@ begin
     end;
   end;
 end;
+{$ENDREGION}
 
-{ TECDataFile ---------------------------------------------------------------- }
+{$REGION 'TECDataFile'}
 
 function TECDataFile.getValue(AIndex: Integer): TECValue;
 begin
@@ -934,7 +968,6 @@ begin
   FValueList := TECValueList.Create;
 end;
 
-{ VIRTUAL }
 destructor TECDataFile.Destroy;
 begin
   FValueList.Free;
@@ -1059,7 +1092,7 @@ begin
         LNewString := ReplaceStr(
           LSplit.ContentStr,
           FValueList.Values[J].NameMagic,
-          FValueList.Values[J].Value);
+          FValueList.Values[J].getInternalValue);
         if LNewString <> LSplit.ContentStr then
           LTerminated := True;
         Inc(J);
@@ -1074,5 +1107,5 @@ begin
     Inc(LCurrentLineIdx);
   until LCurrentLineIdx = FDataFile.Count;
 end;
-
+{$ENDREGION}
 end.

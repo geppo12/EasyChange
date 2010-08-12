@@ -29,7 +29,7 @@ object fmMain: TfmMain
     Top = 8
     Width = 320
     Height = 378
-    Anchors = [akLeft, akTop, akBottom]
+    Anchors = [akLeft, akTop, akRight, akBottom]
     ColCount = 2
     FixedCols = 0
     FixedRows = 0
@@ -100,6 +100,7 @@ object fmMain: TfmMain
     Top = 463
     Width = 87
     Height = 17
+    Anchors = [akLeft, akBottom]
     Caption = 'Use Project'
     Checked = True
     State = cbChecked
@@ -110,7 +111,7 @@ object fmMain: TfmMain
     Top = 8
     Width = 228
     Height = 378
-    Anchors = [akLeft, akTop, akRight, akBottom]
+    Anchors = [akTop, akRight, akBottom]
     ItemHeight = 13
     TabOrder = 7
     OnClick = lbFilesClick
