@@ -40,7 +40,7 @@
 			<Version>7.0</Version>
 			<DCC_Hints>False</DCC_Hints>
 			<DCC_MapFile>3</DCC_MapFile>
-			<DCC_Define>_SI_DEBUG;_DEBUG;DEBUG;$(DCC_Define)</DCC_Define>
+			<DCC_Define>_SI_DEBUG;_DEBUG;DEBUG;EUREKALOG;EUREKALOG_VER6;$(DCC_Define)</DCC_Define>
 			<DCC_ResourcePath>C:\Programmi\Gurock Software\SmartInspect Professional\lib\delphi\delphi2007;$(DCC_ResourcePath)</DCC_ResourcePath>
 			<DCC_ObjPath>C:\Programmi\Gurock Software\SmartInspect Professional\lib\delphi\delphi2007;$(DCC_ObjPath)</DCC_ObjPath>
 			<DCC_IncludePath>C:\Programmi\Gurock Software\SmartInspect Professional\lib\delphi\delphi2007;$(DCC_IncludePath)</DCC_IncludePath>
@@ -62,7 +62,7 @@
 						<VersionInfo Name="MajorVer">1</VersionInfo>
 						<VersionInfo Name="MinorVer">1</VersionInfo>
 						<VersionInfo Name="Release">1</VersionInfo>
-						<VersionInfo Name="Build">17</VersionInfo>
+						<VersionInfo Name="Build">18</VersionInfo>
 						<VersionInfo Name="Debug">False</VersionInfo>
 						<VersionInfo Name="PreRelease">False</VersionInfo>
 						<VersionInfo Name="Special">False</VersionInfo>
@@ -74,7 +74,7 @@
 					<VersionInfoKeys>
 						<VersionInfoKeys Name="CompanyName"/>
 						<VersionInfoKeys Name="FileDescription"/>
-						<VersionInfoKeys Name="FileVersion">1.1.1.17</VersionInfoKeys>
+						<VersionInfoKeys Name="FileVersion">1.1.1.18</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName"/>
 						<VersionInfoKeys Name="LegalCopyright"/>
 						<VersionInfoKeys Name="LegalTrademarks"/>
@@ -120,7 +120,7 @@
 <!-- EurekaLog First Line
 [Exception Log]
 EurekaLog Version=6022
-Activate=0
+Activate=1
 Activate Handle=1
 Save Log File=1
 Foreground Tab=0
