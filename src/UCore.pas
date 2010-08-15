@@ -1085,9 +1085,13 @@ begin
   repeat
     LSplit.StartStr := kStrHeader;
     LSplit.EndStr   := kStrEnd;
+    { verifico di avere una linea con dei marker }
     if splitString(LSplit,FDataFile.Strings[LCurrentLineIdx]) then begin
+      { cerco il valore (per nome }
       J := 0;
       LTerminated := False;
+      { faccio un replace string su tutte le variabili del database.
+        TODO -cFIXME : metodo di sostiruzione 'brutto', da cambiare }
       while (J < FValueList.Count) and not LTerminated do begin
         LNewString := ReplaceStr(
           LSplit.ContentStr,
@@ -1099,10 +1103,15 @@ begin
       end;
         Inc(LCurrentLineIdx);
 
-      if FDataFile.Count = LCurrentLineIdx then
-        FDataFile.Add(LNewString)
-      else
-        FDataFile.Strings[LCurrentLineIdx] := LNewString;
+      { se ho fatto una terminazioen forzata la stringa e stata aggiornata
+        e quindi va sostituita, altrimenti LNewString non è cambiata e quindi
+        non va modificata nel codice }
+      if LTerminated then begin
+        if FDataFile.Count = LCurrentLineIdx then
+          FDataFile.Add(LNewString)
+        else
+          FDataFile.Strings[LCurrentLineIdx] := LNewString;
+      end;
     end;
     Inc(LCurrentLineIdx);
   until LCurrentLineIdx = FDataFile.Count;

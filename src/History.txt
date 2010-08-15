@@ -1,7 +1,9 @@
-1.1.0.17
+1.1.1.22 [20100815]
 NEW Subclass della classe TECValue
 NEW Nuova classe 'R' Range
+NEW	Eurekalog 6.0.24
 FIX alcuni fix interni minori
+
 
 1.1.0.10
 NEW Implementata la modalità multifile
@@ -10,7 +12,7 @@ FIX corretta la gestione delle linee arbitrarie prima dell'header
 1.0.3b5
 NEW Utilizzo di un combobox per vero / falso
 NEW Migliore implementazione della gestione di SmartInspect
-FIX Corretto un problema nel file per la generazione del nome di versione
+FIX Corretto un problema la generazione della stringa di versione
 
 1.0.3b4 [20091002]
 FIX Corretto resize della form

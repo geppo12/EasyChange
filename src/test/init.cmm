@@ -24,7 +24,7 @@ do start-cpu
 ;@GM@ @%sdram@%
 do sdram
 ;do sympath
-;@GM@ @%falsh@%
+;@GM@ @%flash@%
 do flash
 enddo
 

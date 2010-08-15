@@ -273,9 +273,11 @@ begin
     showValues;
   end else begin
     FFiles.Add(AFileName);
-    LDataFile.LoadFromFile(ExtractFilename(AFileName));
-    lbFiles.AddItem(AFileName,LDataFile);
-    lbFiles.ItemIndex := 1;
+    LDataFile.LoadFromFile(AFileName);
+    if LDataFile.Count <> 0 then begin
+      lbFiles.AddItem(ExtractFilename(AFileName),LDataFile);
+      lbFiles.ItemIndex := 0;
+    end;
   end;
 
   if LDataFile.InvalidString > 0  then
@@ -527,6 +529,8 @@ begin
 {$IFDEF _BETA_VERSION}
   Caption := Caption + ' Beta';
 {$ENDIF}
+  if ParamCount > 0 then
+    doLoad(ParamStr(1))
 end;
 
 procedure TfmMain.lbFilesClick(Sender: TObject);
