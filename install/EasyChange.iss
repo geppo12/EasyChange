@@ -1,6 +1,6 @@
 [Setup]
 AppName=EasyChange
-AppVerName=1.1.1.26
+AppVerName=1.1.1.27
 DefaultDirName={pf}\EasyChange
 DefaultGroupName=EasyChange
 UninstallDisplayIcon={app}\EasyChange.exe

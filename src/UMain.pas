@@ -371,10 +371,10 @@ var
 begin
   LEnd := False;
   repeat
-    LPos := Pos('\r',ADocs);
+    LPos := Pos('\n',ADocs);
     if LPos > 0 then begin
       LString := LeftStr(ADocs,LPos-1);
-      ADocs := RightStr(ADocs,Length(ADocs)-LPos);
+      ADocs := RightStr(ADocs,Length(ADocs)-LPos-1);
     end else begin
       LString := ADocs;
       LEnd := True;
