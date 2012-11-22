@@ -1,3 +1,12 @@
+1.1.1.17 [20100815]
+NEW Subclass della classe TECValue
+NEW Nuova classe 'R' Range
+NEW Implementata la modalità multifile
+NEW Utilizzo di un combobox per vero / falso
+NEW Migliore implementazione della gestione di SmartInspect
+FIX corretta la gestione delle linee arbitrarie prima dell'header
+FIX Corretto un problema la generazione della stringa di versione
+
 1.0.3b5
 NEW Utilizzo di un combobox per vero / falso
 NEW Migliore implementazione della gestione di SmartInspect

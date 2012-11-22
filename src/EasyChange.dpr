@@ -3,7 +3,6 @@ program EasyChange;
 
 
 uses
-  ExceptionLog,
   Forms,
   UMain in 'UMain.pas' {fmMain},
   UCore in 'UCore.pas',

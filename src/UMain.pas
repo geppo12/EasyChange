@@ -17,6 +17,7 @@ uses
 const
   {* tipo di progetto EasyChange }
   kProjectExt = '.ecp';
+  kHistoryDir = '__echistory';
 type
 
   TfmMain = class(TForm)
@@ -387,22 +388,34 @@ procedure TfmMain.createBackup(AFileName: string);
 var
   LNewName: string;
 {$IFDEF _HISTORY}
+  LFileName,
+  LFilePath: string;
   I: Integer;
+  LHistoryOk: Boolean;
 {$ENDIF}
 begin
 {$IFDEF _HISTORY}
   I := 1;
-  repeat
-    LNewName := AFileName+'~'+IntToStr(I);
-    Inc(I);
-  until not FileExists(LNewName);
+  LFilePath := ExtractFilePath(AFileName)+kHistoryDir+'\';
+  LFileName := ExtractFileName(AFileName);
+  LHistoryOk := true;
+  if not DirectoryExists(LFilePath) then
+    if not CreateDir(LFilePath) then
+      LHistoryOk := false;
+
+  if LHistoryOk then begin
+    repeat
+      LNewName := LFilePath+LFileName+'~'+IntToStr(I);
+      Inc(I);
+    until not FileExists(LNewName);
 {$IFDEF _SAFE_MODE}
-  { applicativo sperimentale. se non copio il backup, preferisco che fallisca
-    con un assert }
-  Assert(CopyFile(PChar(AFileName),PChar(LNewName),False));
+    { applicativo sperimentale. se non copio il backup, preferisco che fallisca
+      con un assert }
+    Assert(CopyFile(PChar(AFileName),PChar(LNewName),False));
 {$ELSE}
-  CopyFile(PChar(AFileName),PChar(LNewName),False);
+    CopyFile(PChar(AFileName),PChar(LNewName),False);
 {$ENDIF}
+  end;
 {$ELSE}
   { aggiungo solo perche non voglio perdere l'estensione originale }
   LNewName := AFileName+'.bak';
