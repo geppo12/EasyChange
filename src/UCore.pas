@@ -328,14 +328,20 @@ begin
              FPairComplete := True;
              FStringBuilder.Add(ACh);
            end;
+
       ',': begin
            if not FPairComplete and (FStringType = stPair) then
              FStringBuilder.Add('=');
              FCompleted := True;
            end;
+
       kEscapeChar: FEscape := True;
+
       '''','"': FQuote := not FQuote;
-      ' ',#9: if FQuote and (FStringType = stValue) then
+
+      ' ',#9: if FQuote and
+                 ((FStringType = stValue) or
+                  ((FStringType = stPair) and FPairComplete)) then
             FStringBuilder.Add(ACh);
       else
         FStringBuilder.Add(ACh);
