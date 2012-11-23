@@ -1095,24 +1095,20 @@ begin
     if splitString(LSplit,FDataFile.Strings[LCurrentLineIdx]) then begin
       { cerco il valore (per nome }
       J := 0;
-      LTerminated := False;
       { faccio un replace string su tutte le variabili del database.
         TODO -cFIXME : metodo di sostiruzione 'brutto', da cambiare }
-      while (J < FValueList.Count) and not LTerminated do begin
+      LNewString := LSplit.ContentStr;
+      while (J < FValueList.Count) do begin
         LNewString := ReplaceStr(
-          LSplit.ContentStr,
+          LNewString,
           FValueList.Values[J].NameMagic,
           FValueList.Values[J].getInternalValue);
-        if LNewString <> LSplit.ContentStr then
-          LTerminated := True;
         Inc(J);
       end;
         Inc(LCurrentLineIdx);
 
-      { se ho fatto una terminazioen forzata la stringa e stata aggiornata
-        e quindi va sostituita, altrimenti LNewString non è cambiata e quindi
-        non va modificata nel codice }
-      if LTerminated then begin
+      { verifico se ho cambiato la stringa (che quindi va sostituita}
+      if LNewString <> LSplit.ContentStr then begin
         if FDataFile.Count = LCurrentLineIdx then
           FDataFile.Add(LNewString)
         else

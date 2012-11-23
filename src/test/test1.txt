@@ -1,9 +1,9 @@
-// @GM@ B,prova,False,#define,#undef
+// @GM@ B,prova,True,#define,#undef
 // @GM@ M,prova2,A,"A=1 + 2",B=2,C=3
-// @GM@ P,prova3,D:\ @GM! */
+// @GM@ P,prova3,D:\DATI @GM! */
 //
 /* @GM-DOC@ prova: test booleano @GM! */
 // @GM-END@
 
-/* @GM@ @%prova2@% TEST @GM! */
-1 + 2 TEST
+/* @GM@ @%prova2@% TEST @%prova3@% @GM! */
+1 + 2 TEST D:\DATI
