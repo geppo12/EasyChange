@@ -12,6 +12,7 @@ uses
 { se definito emette ulteriori informazioni di debug circa la composizione del
   file }
 {$DEFINE EXTENDED_DEBUG}
+{$INLINE OFF}
 
 resourcestring
   kInvalidStringStr = 'Stringa ''%s'' invalida';
@@ -153,10 +154,6 @@ type
     {* Aggiorna il value con dati specifici della sottoclasse
        @param AParamBuilder: cotenitore dei parametri per i dati specifici }
     procedure updateSpecificData(AParamBuilder: TECParamBuilder); virtual;
-    {* Effattua l'escape della virgola nelle stringe
-       @param AString: stringa con virgole di cui effettuare l'escape
-       @result stringa con le virole preposte di simbolo di escape }
-    function doEscape(AString: string): string;
 
     public
     class function CreateValue(ASplittedString: TECSplittedString): TECValue;
@@ -191,6 +188,8 @@ type
     public
     constructor Create;
   end;
+
+
 
   TECValueMulti = class(TECValue)
     private
@@ -329,11 +328,12 @@ begin
              FStringBuilder.Add(ACh);
            end;
 
-      ',': begin
-           if not FPairComplete and (FStringType = stPair) then
-             FStringBuilder.Add('=');
+      ',': if not FQuote then begin
+             if not FPairComplete and (FStringType = stPair) then
+               FStringBuilder.Add('=');
              FCompleted := True;
-           end;
+           end else
+             FStringBuilder.Add(ACh);
 
       kEscapeChar: FEscape := True;
 
@@ -567,27 +567,6 @@ begin
   { implementata dai discendenti }
 end;
 
-function TECValue.doEscape(AString: string): string;
-var
-  LCh: Char;
-  LListEsc: TStringList;
-begin
-  Result := '';
-  LListEsc := TStringList.Create;
-  LListEsc.LineBreak := '';
-  try
-    for LCh in AString do begin
-      if CharInSet(LCh,[kEscapeChar,',']) then
-        LListEsc.Add(kEscapeChar);
-
-      LListEsc.Add(LCh);
-    end;
-    Result := LListEsc.Text;
-  finally
-    LListEsc.Free;
-  end;
-end;
-
 class function TECValue.CreateValue(ASplittedString: TECSplittedString): TECValue;
 var
   LKind: TECValueKind;
@@ -653,8 +632,6 @@ var
 
 begin
   LList := TStringList.Create;
-  LListEsc := TStringList.Create;
-  LListEsc.LineBreak := '';
   try
     case Kind of
       vkString:   LList.Add('S');
@@ -664,19 +641,20 @@ begin
       vkMultiple: LList.Add('M');
       vkRange:    LList.Add('R');
     end;
+    { add name and value in string form }
     LList.Add(FName);
     LList.Add(FValue);
-    { aggiungo alla lista la parti relative ad ogni sottoclasse }
+
+    { add special parts relative to a specific subclass }
     valueStringFactory(LList);
 
-    { compongo il risultato }
+    { recreate line }
     Result := FLineHeader + ' ' + LList.CommaText;
     if FLinetail <> '' then
       Result := Result + ' ' + FLineTail;
     SiMain.LogDebug('TECValue: ValueAsString = %s',[Result]);
   finally
     LList.Free;
-    LListEsc.Free;
   end;
 end;
 {$ENDREGION}
@@ -776,17 +754,18 @@ end;
 procedure TECValueMulti.valueStringFactory(AList: TStringList);
 var
   I: Integer;
+  LValueStr: string;
 begin
   case Kind of
     vkMultiple: begin
       for I := 0 to FOptionList.Count - 1 do
-        AList.Add(doEscape(FOptionList.Strings[I]));
+        AList.Add(FOptionList.Strings[I]);
     end;
 
     vkBoolean:
       if FOptionList.Count >= 2 then begin
-        AList.Add(doEscape(FOptionList.ValueFromIndex[0]));
-        AList.Add(doEscape(FOptionList.ValueFromIndex[1]));
+        AList.Add(FOptionList.ValueFromIndex[0]);
+        AList.Add(FOptionList.ValueFromIndex[1]);
       end;
   end;
 end;
